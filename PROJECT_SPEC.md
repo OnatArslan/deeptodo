@@ -50,6 +50,7 @@ Ana ilke:
 - JWT access token
 - Opaque rotating refresh token
 - Refresh-token reuse detection
+- Login brute-force koruması (in-memory rate limit)
 - Resource-based authorization
 - Public OpenAPI documentation
 - Final aşamada Docker image + public HTTPS deployment
@@ -670,6 +671,9 @@ Authenticated user workspace oluşturduğunda Workspace + OWNER WorkspaceMember 
 - normalized email
 - password hash verification
 - ACTIVE user requirement
+- brute-force koruması: login denemeleri rate limit ile sınırlanır
+
+Gerekçe: uygulama public HTTPS üzerinden internete açılır; sınırsız deneme kabul eden bir login endpoint'i parola tahmini saldırısına açıktır. Uygulama tek instance çalıştığı için rate limit state'i in-memory tutulur; Redis kapsam dışı kalır. Birden çok instance'a geçilirse bu karar yeniden açılır (in-memory sayaç instance'lar arasında paylaşılmaz).
 
 ### Access token
 - short-lived JWT
@@ -691,6 +695,8 @@ Authenticated user workspace oluşturduğunda Workspace + OWNER WorkspaceMember 
 - revoke/logout
 
 Cookie kullanan refresh/logout endpoint'lerinde CSRF kararı bilinçli ele alınır.
+
+**Açık karar — eşzamanlı refresh:** kullanıcı uygulamayı iki sekmede açıkken iki sekme aynı refresh token'ı neredeyse aynı anda kullanabilir. İkinci istek "kullanılmış token" olarak görülür, reuse detection tetiklenir ve kullanıcının oturumu düşer (yanlış pozitif). Kısa bir grace window ile meşru eşzamanlı kullanımın tolere edilip edilmeyeceği Phase 3'te, reuse detection uygulanmadan önce bilinçli olarak kararlaştırılır ve STATUS'a yazılır. Karar verilene kadar varsayılan davranış spec'teki katı reuse detection'dır.
 
 ## 11. API surface — V1 target
 
@@ -836,9 +842,11 @@ Phase 0–3 boyunca:
 - code compile edilir
 - application/manual smoke doğrulanır
 - migration ve endpoint davranışı elle gözlenebilir
-- Codex kullanıcı istemedikçe kapsamlı test suite eklemez
+- Claude Code kullanıcı istemedikçe kapsamlı test suite eklemez
 
 Phase 4'te risk bazlı test suite kurulur.
+
+**İstisna — yarış durumuna dayanan invariant'lar:** son OWNER invariant'ı ve refresh token rotation/reuse detection, uygulandıkları task'ta birer otomatik concurrency testiyle doğrulanır. Gerekçe: bu hatalar yalnız iki istek neredeyse aynı anda geldiğinde ortaya çıkar ve elle tekrar üretilemez. Test Phase 4'e bırakılırsa locking tasarımının doğru olup olmadığı iki faz boyunca bilinmez. İstisna yalnız bu iki invariant içindir; genel test politikası değişmez.
 
 Test scopes:
 - Unit: status transition, owner invariant helper/business branch, token rotation logic, authorization branching
@@ -948,7 +956,7 @@ Toplam 5 phase.
 Vertical slices:
 1. Workspace API + create-owner transaction
 2. WorkspaceMember + OWNER/MEMBER
-3. last-owner invariant
+3. last-owner invariant (+ concurrency testi, bkz. §15 istisnası)
 4. Project
 5. Todo optional Project relationship
 6. Tag
@@ -966,13 +974,14 @@ Vertical slices:
 4. JWT access token
 5. Resource Server validation
 6. refresh_tokens schema
-7. rotation
-8. reuse detection
+7. rotation (+ concurrency testi, bkz. §15 istisnası)
+8. reuse detection (+ eşzamanlı refresh / grace window kararı)
 9. logout/revoke
 10. SecurityContext integration
 11. workspace/resource authorization
 12. account deactivation + token revoke
 13. CSRF/CORS/session-policy decisions
+14. login brute-force koruması (in-memory rate limit)
 
 ### Phase 4 — Testing + Production Polish + Deployment
 

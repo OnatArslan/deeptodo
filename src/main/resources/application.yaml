@@ -1,3 +1,15 @@
 spring:
   application:
     name: deeptodo
+
+  datasource:
+    # Default'lar compose.yaml'daki local PostgreSQL'e karsilik gelir; prod'da env variable ile ezilir.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/deeptodo}
+    username: ${DB_USERNAME:deeptodo}
+    password: ${DB_PASSWORD:deeptodo}
+
+  jpa:
+    # Schema'nin sahibi Flyway; Hibernate yalniz entity <-> tablo uyumunu kontrol eder.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
