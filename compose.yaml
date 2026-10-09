@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17.6
     container_name: deeptodo-postgres
     environment:
       POSTGRES_DB: deeptodo
@@ -9,8 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      # Postgres 18+ image'larinda data dizini /var/lib/postgresql altinda (major version'a gore alt klasor)
-      - postgres-data:/var/lib/postgresql
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U deeptodo -d deeptodo"]
       interval: 5s

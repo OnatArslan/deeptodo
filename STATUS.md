@@ -6,51 +6,52 @@
 
 ## Last updated
 
-2026-09-05
+2026-10-01
 
 ## Current phase
 
-**Phase 0 — Bootstrap**
+**Phase 1 — Todo Core**
 
 Goal:
 
 ```text
-Spring Boot application
-+ PostgreSQL local Docker Compose
-+ Flyway
-+ configuration
-+ successful startup/manual smoke
+users + workspaces (minimal, no security fields)
++ fixed dev user/workspace seed
++ todos: CRUD, status transition, optimistic version, hard delete
++ request/response DTO, validation/error contract
++ workspace-scoped queries
 ```
 
 ## Active task
 
-### DT-001 — Bootstrap baseline
+### DT-002 — Users + Workspaces schema and entities
 
 Status: `OPEN`
 
 Scope:
-- project baseline'ını current `PROJECT_SPEC.md` ile hizala
-- PostgreSQL local environment
-- Flyway baseline
-- application config
-- application startup
-- manual smoke
-
-Do not add business features yet.
+- `V1` migration: `users` (without `password_hash`) and `workspaces`, per spec §7.1–7.2
+- `User` and `Workspace` entities mapped to these tables; `ddl-auto: validate` passes
+- no repository/service/controller/endpoint yet
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| Phase 0 — Bootstrap | 🔄 In progress |
-| Phase 1 — Todo Core | ⬜ Not started |
+| Phase 0 — Bootstrap | ✅ Done |
+| Phase 1 — Todo Core | 🔄 In progress |
 | Phase 2 — Workspace / Collaboration / Querying | ⬜ |
 | Phase 3 — Security | ⬜ |
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
 
-_None yet._
+### DT-001 — Bootstrap baseline ✅ (2026-10-01)
+
+- `compose.yaml`: PostgreSQL `17.6`, named volume `postgres-data`, `pg_isready` healthcheck
+- `pom.xml`: data-jpa, PostgreSQL driver (runtime), `spring-boot-starter-flyway` + `flyway-database-postgresql`, actuator
+- `application.yaml`: env-overridable datasource (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`), `ddl-auto: validate`, `open-in-view: false`
+- `src/main/resources/db/migration/` created (empty)
+- Manual smoke: app starts, Flyway creates `flyway_schema_history`, `/actuator/health` → `UP`
 
 ## Applied migrations
 
@@ -60,7 +61,7 @@ _None yet._
 
 ## Current schema
 
-No project business schema recorded yet.
+No project business schema yet. Only Flyway's `flyway_schema_history` exists.
 
 Target schema is defined in `PROJECT_SPEC.md`; only applied Flyway migrations belong here.
 
@@ -72,11 +73,10 @@ Target schema is defined in `PROJECT_SPEC.md`; only applied Flyway migrations be
 
 ## Current learning focus
 
-Phase 0:
-- Spring Boot bootstrap/configuration
-- PostgreSQL connection
-- Flyway lifecycle
-- application startup
+Phase 1:
+- Flyway migration writing (constraints, CHECK, naming conventions)
+- JPA entity mapping vs. schema validation
+- UUID v7 generation, `Instant` / `timestamptz`, enum as string
 
 ## Locked scope decisions
 

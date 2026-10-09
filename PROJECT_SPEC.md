@@ -151,38 +151,41 @@ Hexagonal/Clean Architecture başlangıç şartı değildir.
 
 Feature gerçekten oluştuğunda package oluşturulur; boş package ağacı baştan üretilmez.
 
+Her feature aynı iskeleti izler:
+
+```text
+<feature>/
+├── <Feature>Service.java   # feature'ın dışa açık kapısı; use-case + transaction boundary
+├── web/                    # HTTP katmanı
+│   ├── <Feature>Controller.java
+│   ├── <Feature>Mapper.java    # entity → DTO; ürettiği DTO'nun yanında
+│   └── dto/                    # request/response DTO'ları
+├── domain/                 # entity, enum, Spring Data repository
+└── exception/              # feature'a özel exception'lar (ihtiyaç doğunca)
+```
+
+Uygulama genelinde:
+
 ```text
 com.onatarslan.deeptodo
 ├── common
-│   ├── error
-│   ├── config
-│   └── security
+│   ├── config      # cross-cutting bean/config
+│   ├── error       # global exception handler, API error contract
+│   └── security    # Phase 3
 ├── identity
-│   ├── web
-│   ├── application
-│   ├── domain
-│   └── persistence
 ├── workspace
-│   ├── web
-│   ├── application
-│   ├── domain
-│   └── persistence
 ├── project
-│   ├── web
-│   ├── application
-│   ├── domain
-│   └── persistence
 ├── todo
-│   ├── web
-│   ├── application
-│   ├── domain
-│   └── persistence
 └── tag
-    ├── web
-    ├── application
-    ├── domain
-    └── persistence
 ```
+
+Kurallar:
+- Başka bir feature yalnız `<Feature>Service` üzerinden kullanılır; başka feature'ın repository'sine doğrudan erişilmez. Java'da alt paket görünürlüğü olmadığı için bu kural derleyiciyle değil review ile korunur.
+- Repository ayrı `persistence` paketinde değil, `domain/` içindedir.
+- Feature'a özel `config/` paketi ancak somut feature-specific configuration (ör. `@ConfigurationProperties`) oluştuğunda açılır.
+- `exception/` içindeki domain/business exception'lar HTTP tipi taşımaz (bkz. §13); HTTP status eşlemesi `common/error`'dadır.
+- `messaging/` / domain event paketi yoktur; modüller arası event ihtiyacı somut bir akışla ortaya çıkarsa bilinçli karar ile eklenir.
+- Tek `<Feature>Service` belirgin şekilde büyürse use-case bazında bölünmesi ayrıca değerlendirilir.
 
 `common` feature-specific kod çöplüğü değildir.
 
