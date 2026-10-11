@@ -170,9 +170,9 @@ Uygulama genelinde:
 com.onatarslan.deeptodo
 ├── common
 │   ├── config      # cross-cutting bean/config
-│   ├── error       # global exception handler, API error contract
-│   └── security    # Phase 3
-├── identity
+│   └── error       # global exception handler, API error contract
+├── auth            # authentication'ın tamamı: SecurityFilterChain, UserDetailsService, token üretimi, refresh token
+├── user
 ├── workspace
 ├── project
 ├── todo
@@ -182,6 +182,7 @@ com.onatarslan.deeptodo
 Kurallar:
 - Başka bir feature yalnız `<Feature>Service` üzerinden kullanılır; başka feature'ın repository'sine doğrudan erişilmez. Java'da alt paket görünürlüğü olmadığı için bu kural derleyiciyle değil review ile korunur.
 - Repository ayrı `persistence` paketinde değil, `domain/` içindedir.
+- Security kodu `common`'da değil, `auth` feature'ındadır (`auth/config/SecurityConfig` dahil). Workspace/resource authorization ise ilgili feature service'inde, sorgu seviyesinde uygulanır (§9).
 - Feature'a özel `config/` paketi ancak somut feature-specific configuration (ör. `@ConfigurationProperties`) oluştuğunda açılır.
 - `exception/` içindeki domain/business exception'lar HTTP tipi taşımaz (bkz. §13); HTTP status eşlemesi `common/error`'dadır.
 - `messaging/` / domain event paketi yoktur; modüller arası event ihtiyacı somut bir akışla ortaya çıkarsa bilinçli karar ile eklenir.
@@ -705,78 +706,80 @@ Cookie kullanan refresh/logout endpoint'lerinde CSRF kararı bilinçli ele alın
 
 Exact payload DTO'ları ilgili feature task'ında tasarlanır.
 
+Bütün application endpoint'leri `/api` öneki altındadır (Actuator hariç).
+
 Auth:
 ```text
-POST   /auth/register
-POST   /auth/login
-POST   /auth/refresh
-POST   /auth/logout
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/refresh
+POST   /api/auth/logout
 ```
 
 Current user:
 ```text
-GET    /users/me
-PATCH  /users/me
-DELETE /users/me
+GET    /api/users/me
+PATCH  /api/users/me
+DELETE /api/users/me
 ```
 
 `PATCH /users/me` display name gibi düşük-risk profil alanlarıyla sınırlıdır. `DELETE` physical delete değil account deactivation'dır.
 
 Workspaces:
 ```text
-POST   /workspaces
-GET    /workspaces
-GET    /workspaces/{workspaceId}
-PATCH  /workspaces/{workspaceId}
-POST   /workspaces/{workspaceId}/archive
+POST   /api/workspaces
+GET    /api/workspaces
+GET    /api/workspaces/{workspaceId}
+PATCH  /api/workspaces/{workspaceId}
+POST   /api/workspaces/{workspaceId}/archive
 ```
 
 Members:
 ```text
-GET    /workspaces/{workspaceId}/members
-POST   /workspaces/{workspaceId}/members
-PATCH  /workspaces/{workspaceId}/members/{memberId}
-DELETE /workspaces/{workspaceId}/members/{memberId}
+GET    /api/workspaces/{workspaceId}/members
+POST   /api/workspaces/{workspaceId}/members
+PATCH  /api/workspaces/{workspaceId}/members/{memberId}
+DELETE /api/workspaces/{workspaceId}/members/{memberId}
 ```
 
 Invitation sistemi yok. OWNER yalnız sistemde zaten mevcut User'ı ekler.
 
 Projects:
 ```text
-POST   /workspaces/{workspaceId}/projects
-GET    /workspaces/{workspaceId}/projects
-GET    /workspaces/{workspaceId}/projects/{projectId}
-PATCH  /workspaces/{workspaceId}/projects/{projectId}
-POST   /workspaces/{workspaceId}/projects/{projectId}/archive
+POST   /api/workspaces/{workspaceId}/projects
+GET    /api/workspaces/{workspaceId}/projects
+GET    /api/workspaces/{workspaceId}/projects/{projectId}
+PATCH  /api/workspaces/{workspaceId}/projects/{projectId}
+POST   /api/workspaces/{workspaceId}/projects/{projectId}/archive
 ```
 
 Todos:
 ```text
-POST   /workspaces/{workspaceId}/todos
-GET    /workspaces/{workspaceId}/todos
-GET    /workspaces/{workspaceId}/todos/{todoId}
-PATCH  /workspaces/{workspaceId}/todos/{todoId}
-DELETE /workspaces/{workspaceId}/todos/{todoId}
+POST   /api/workspaces/{workspaceId}/todos
+GET    /api/workspaces/{workspaceId}/todos
+GET    /api/workspaces/{workspaceId}/todos/{todoId}
+PATCH  /api/workspaces/{workspaceId}/todos/{todoId}
+DELETE /api/workspaces/{workspaceId}/todos/{todoId}
 ```
 
 Tags:
 ```text
-POST   /workspaces/{workspaceId}/tags
-GET    /workspaces/{workspaceId}/tags
-PATCH  /workspaces/{workspaceId}/tags/{tagId}
-DELETE /workspaces/{workspaceId}/tags/{tagId}
+POST   /api/workspaces/{workspaceId}/tags
+GET    /api/workspaces/{workspaceId}/tags
+PATCH  /api/workspaces/{workspaceId}/tags/{tagId}
+DELETE /api/workspaces/{workspaceId}/tags/{tagId}
 ```
 
 Todo tags:
 ```text
-PUT    /workspaces/{workspaceId}/todos/{todoId}/tags/{tagId}
-DELETE /workspaces/{workspaceId}/todos/{todoId}/tags/{tagId}
+PUT    /api/workspaces/{workspaceId}/todos/{todoId}/tags/{tagId}
+DELETE /api/workspaces/{workspaceId}/todos/{todoId}/tags/{tagId}
 ```
 
 Todo assignees:
 ```text
-PUT    /workspaces/{workspaceId}/todos/{todoId}/assignees/{userId}
-DELETE /workspaces/{workspaceId}/todos/{todoId}/assignees/{userId}
+PUT    /api/workspaces/{workspaceId}/todos/{todoId}/assignees/{userId}
+DELETE /api/workspaces/{workspaceId}/todos/{todoId}/assignees/{userId}
 ```
 
 ## 12. Todo list/query scope
@@ -930,6 +933,8 @@ Actuator'ın hassas operational endpoint'leri public edilmez.
 ## 18. Development phases
 
 Toplam 5 phase.
+
+**Sıra kararı (2026-10-10):** Phase 3'ün authentication kısmı (password field, register, login, JWT) Phase 1'den önce ele alınır; Onat'ın Security öğrenme akışını takip eder. Resource/workspace authorization adımları ilgili feature'lar (Workspace, Todo) var olduktan sonra uygulanır.
 
 ### Phase 0 — Bootstrap
 - Spring Boot project

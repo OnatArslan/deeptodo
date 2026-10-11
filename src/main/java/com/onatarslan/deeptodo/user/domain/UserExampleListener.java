@@ -1,4 +1,4 @@
-package com.onatarslan.deeptodo.identity.domain;
+package com.onatarslan.deeptodo.user.domain;
 
 import jakarta.persistence.PrePersist;
 import org.slf4j.Logger;

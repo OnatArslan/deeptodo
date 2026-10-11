@@ -5,7 +5,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -13,16 +12,10 @@ import java.util.Optional;
 @EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider")
 public class JpaAuditingConfig {
 
+    // Spring Data'nın varsayılanı LocalDateTime üretir; entity alanları Instant olduğu için açıkça Instant veriyoruz.
     @Bean
-    public Clock clock() {
-        return Clock.systemUTC();
-    }
-
-
-    @Bean
-    public DateTimeProvider auditingDateTimeProvider(Clock clock) {
-
-        return () -> Optional.of(Instant.now(clock));
+    public DateTimeProvider auditingDateTimeProvider() {
+        return () -> Optional.of(Instant.now());
     }
 
 }

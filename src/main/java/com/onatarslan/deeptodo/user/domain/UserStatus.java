@@ -1,4 +1,4 @@
-package com.onatarslan.deeptodo.identity.domain;
+package com.onatarslan.deeptodo.user.domain;
 
 public enum UserStatus {
     ACTIVE,

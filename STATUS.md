@@ -6,41 +6,34 @@
 
 ## Last updated
 
-2026-10-01
+2026-10-10
 
 ## Current phase
 
-**Phase 1 — Todo Core**
+**Phase 3 (öne alındı) — Authentication**
 
-Goal:
-
-```text
-users + workspaces (minimal, no security fields)
-+ fixed dev user/workspace seed
-+ todos: CRUD, status transition, optimistic version, hard delete
-+ request/response DTO, validation/error contract
-+ workspace-scoped queries
-```
+Karar (2026-10-10): Phase 3'ün authentication kısmı Phase 1'den önce yapılıyor (bkz. spec §18 sıra kararı). DT-002'nin `users` kısmı bu akışa dahil edildi; `workspaces` entity'si Phase 1/2'de.
 
 ## Active task
 
-### DT-002 — Users + Workspaces schema and entities
+### DT-003 — Register + login (DB-backed authentication)
 
-Status: `OPEN`
+Status: `RESET` (2026-10-11)
 
-Scope:
-- `V1` migration: `users` (without `password_hash`) and `workspaces`, per spec §7.1–7.2
-- `User` and `Workspace` entities mapped to these tables; `ddl-auto: validate` passes
-- no repository/service/controller/endpoint yet
+Onat security tarafına baştan başlamak istedi. Kaldırılanlar (yalnız security'ye özel kod): `auth/` paketinin tamamı, `user/web` (`MeController`), `application-local.yaml`, `spring-boot-starter-security` + `spring-security-test`.
+
+Korunanlar: migration ve entity'ler olduğu gibi (V1'de `password_hash varchar(255)`, `User.passwordHash` / `changePasswordHash`), `secrets/` (JWT key'leri, gitignored), `UserRepository.findByEmail`, auditing altyapısı, spec §5 / §11 / §18 kararları (security `auth` feature'ında, `/api` öneki, authentication Phase 1'den önce).
+
+Önceki implementasyonun yedeği oturum scratchpad'inde (commit edilmedi).
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
 | Phase 0 — Bootstrap | ✅ Done |
-| Phase 1 — Todo Core | 🔄 In progress |
+| Phase 1 — Todo Core | ⏸ Paused (users schema done, workspace entity pending) |
 | Phase 2 — Workspace / Collaboration / Querying | ⬜ |
-| Phase 3 — Security | ⬜ |
+| Phase 3 — Security | 🔄 In progress (authentication first) |
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
@@ -50,33 +43,43 @@ Scope:
 - `compose.yaml`: PostgreSQL `17.6`, named volume `postgres-data`, `pg_isready` healthcheck
 - `pom.xml`: data-jpa, PostgreSQL driver (runtime), `spring-boot-starter-flyway` + `flyway-database-postgresql`, actuator
 - `application.yaml`: env-overridable datasource (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`), `ddl-auto: validate`, `open-in-view: false`
-- `src/main/resources/db/migration/` created (empty)
+- `src/main/resources/db/migration/` created
 - Manual smoke: app starts, Flyway creates `flyway_schema_history`, `/actuator/health` → `UP`
 
 ## Applied migrations
 
 | Migration | Purpose |
 |---|---|
-| — | — |
+| V1 (local, not committed) | `users` (incl. `password_hash varchar(255)`, `version`), `workspaces`; named PKs, no time defaults, `~ '\S'` blank checks |
 
 ## Current schema
 
-No project business schema yet. Only Flyway's `flyway_schema_history` exists.
+`users`, `workspaces` per local V1. `users.version` remains only because `BaseEntity` maps `@Version` (TD-6).
 
-Target schema is defined in `PROJECT_SPEC.md`; only applied Flyway migrations belong here.
+## Package layout
+
+```text
+common/config     JpaAuditingConfig (DateTimeProvider → Instant)
+common/domain     BaseEntity, AuditableEntity
+user/domain       User (normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
+```
+
+Planned (spec §5): `auth/` — AuthService, UserDetailsService, `config/SecurityConfig`, JWT, refresh token.
 
 ## Known technical debt
 
 | ID | Debt | Planned phase |
 |---|---|---|
-| — | — | — |
+| TD-2 | `users.version` spec'te yok (§21); TD-6 ile birlikte çözülecek | Before Todo entity |
+| TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
+| TD-4 | Login rate limit (spec §10) henüz yok | Phase 3 |
+| TD-6 | `BaseEntity` her entity'ye `@Version` ekliyor (spec §21: mekanik `@Version` yok) | Before Todo entity |
 
 ## Current learning focus
 
-Phase 1:
-- Flyway migration writing (constraints, CHECK, naming conventions)
-- JPA entity mapping vs. schema validation
-- UUID v7 generation, `Instant` / `timestamptz`, enum as string
+- Spring Security 7: filter chain, `AuthenticationManager` / `DaoAuthenticationProvider` akışı
+- Password hashing: `DelegatingPasswordEncoder`, hash upgrade
+- Error contract: `ProblemDetail`, authentication hatalarında bilgi sızdırmama
 
 ## Locked scope decisions
 
