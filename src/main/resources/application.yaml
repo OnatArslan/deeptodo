@@ -13,3 +13,13 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+
+deeptodo:
+  security:
+    jwt:
+      issuer: https://api.deeptodo.local
+      access-token-ttl: 15m
+      key-id: deeptodo-2026-10
+      private-key-location: file:./secrets/jwt-private.pem
+      public-key-location: file:./secrets/jwt-public.pem
+

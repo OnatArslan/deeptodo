@@ -16,15 +16,21 @@ Karar (2026-10-10): Phase 3'ün authentication kısmı Phase 1'den önce yapıl�
 
 ## Active task
 
-### DT-003 — Register + login (DB-backed authentication)
+### DT-003 — Register + login + JWT access token üretimi
 
-Status: `RESET` (2026-10-11)
+Status: `IN PROGRESS` (yeniden başlatıldı, 2026-10-11)
 
-Onat security tarafına baştan başlamak istedi. Kaldırılanlar (yalnız security'ye özel kod): `auth/` paketinin tamamı, `user/web` (`MeController`), `application-local.yaml`, `spring-boot-starter-security` + `spring-security-test`.
+Done:
+- `spring-boot-starter-security`, `spring-boot-starter-security-oauth2-resource-server`
+- `SecurityConfig`: stateless, csrf kapalı, `/api/auth/**` permitAll, geçici `httpBasic`; `PasswordEncoderFactories` (default bcrypt); `AuthenticationManager` = `ProviderManager(DaoAuthenticationProvider)`
+- `AppUserDetailsService` / `AppUserDetails` (aktiflik `status == ACTIVE`'den türetilir; ayrı `enabled` kolonu yok)
+- JWT üretimi: `JwtConfig` (RSA key'ler `secrets/`'tan, `NimbusJwtEncoder`, `kid`), `JwtProperties`, `TokenService` (`iss`, `sub`=userId, `iat`, `exp`, `jti`, `authorities`), TTL 15m
+- `POST /api/auth/register` 201, `POST /api/auth/login` → `TokenResponse`, `GET /api/users/me` (test)
+- `AuthExceptionHandler`: `AuthenticationException` → 401, `EmailAlreadyExistException` → 409
 
-Korunanlar: migration ve entity'ler olduğu gibi (V1'de `password_hash varchar(255)`, `User.passwordHash` / `changePasswordHash`), `secrets/` (JWT key'leri, gitignored), `UserRepository.findByEmail`, auditing altyapısı, spec §5 / §11 / §18 kararları (security `auth` feature'ında, `/api` öneki, authentication Phase 1'den önce).
+Manual smoke ✅ (2026-10-12): register 201; duplicate 409; login 200 + RS256 JWT; yanlış şifre / bilinmeyen kullanıcı / DEACTIVATED → aynı 401; bilinen ve bilinmeyen email için yanıt süresi eşit (~86 ms, timing koruması çalışıyor); GET register 405; `/api/users/me` httpBasic 200, kimliksiz 401; validation 400.
 
-Önceki implementasyonun yedeği oturum scratchpad'inde (commit edilmedi).
+Next: token doğrulama — `oauth2ResourceServer(jwt)` + `JwtDecoder`, `httpBasic` kaldırılacak.
 
 ## Phase status
 

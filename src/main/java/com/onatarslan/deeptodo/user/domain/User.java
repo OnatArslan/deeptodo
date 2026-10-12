@@ -59,6 +59,15 @@ public class User extends AuditableEntity {
         this.passwordHash = newPasswordHash;
     }
 
+    // Kaydederken ve ararken aynı kural kullanılmalı; aksi halde kayıtlı kullanıcı login olamaz.
+    // Locale.ROOT: Türkçe locale'de "I".toLowerCase() noktasız "ı" üretir.
+    public static String normalizeEmail(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("email can not be null or blank");
+        }
+        return raw.strip().toLowerCase(Locale.ROOT);
+    }
+
     public String getEmail() {
         return email;
     }
@@ -75,13 +84,5 @@ public class User extends AuditableEntity {
         return status;
     }
 
-    // Kaydederken ve ararken aynı kural kullanılmalı; aksi halde kayıtlı kullanıcı login olamaz.
-    // Locale.ROOT: Türkçe locale'de "I".toLowerCase() noktasız "ı" üretir.
-    public static String normalizeEmail(String raw) {
-        if (raw == null || raw.isBlank()) {
-            throw new IllegalArgumentException("email can not be null or blank");
-        }
-        return raw.strip().toLowerCase(Locale.ROOT);
-    }
 
 }
