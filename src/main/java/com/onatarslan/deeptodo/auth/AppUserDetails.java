@@ -1,8 +1,7 @@
-package com.onatarslan.deeptodo.auth.domain;
+package com.onatarslan.deeptodo.auth;
 
 import com.onatarslan.deeptodo.user.domain.User;
 import com.onatarslan.deeptodo.user.domain.UserStatus;
-import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,18 +17,17 @@ public record AppUserDetails(UUID id, String email, String passwordHash, boolean
                 user.getId(),
                 user.getEmail(),
                 user.getPasswordHash(),
-                // Aktiflik bilgisinin tek kaynağı status (spec §7.1); ayrı bir enabled kolonu yok.
                 user.getStatus() == UserStatus.ACTIVE
         );
     }
 
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
+    public Collection<GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
     @Override
-    public @Nullable String getPassword() {
+    public String getPassword() {
         return passwordHash;
     }
 

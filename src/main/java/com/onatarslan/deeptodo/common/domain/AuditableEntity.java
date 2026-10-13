@@ -14,7 +14,7 @@ import java.time.Instant;
 public abstract class AuditableEntity extends BaseEntity {
 
     @CreatedDate
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
 //    @CreatedBy

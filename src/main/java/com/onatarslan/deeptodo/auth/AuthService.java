@@ -1,6 +1,5 @@
 package com.onatarslan.deeptodo.auth;
 
-import com.onatarslan.deeptodo.auth.domain.AppUserDetails;
 import com.onatarslan.deeptodo.auth.exception.EmailAlreadyExistException;
 import com.onatarslan.deeptodo.auth.jwt.JwtProperties;
 import com.onatarslan.deeptodo.auth.jwt.TokenService;
@@ -46,7 +45,7 @@ public class AuthService {
         }
         var hashedPassword = passwordEncoder.encode(request.password());
 
-        var user = User.register(normalizedEmail, hashedPassword, request.displayName());
+        var user = new User(request.email(), hashedPassword, request.displayName());
 
         try {
             return userRepository.saveAndFlush(user).getId();

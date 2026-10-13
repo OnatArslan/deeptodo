@@ -6,7 +6,7 @@
 
 ## Last updated
 
-2026-10-10
+2026-10-13
 
 ## Current phase
 
@@ -56,30 +56,36 @@ Next: token doğrulama — `oauth2ResourceServer(jwt)` + `JwtDecoder`, `httpBasi
 
 | Migration | Purpose |
 |---|---|
-| V1 (local, not committed) | `users` (incl. `password_hash varchar(255)`, `version`), `workspaces`; named PKs, no time defaults, `~ '\S'` blank checks |
+| V1 | `users` (incl. `password_hash varchar(255)`), `workspaces`; named PKs, no time defaults, `~ '\S'` blank checks |
+| V2 | `users.version` kolonu kaldırıldı (spec §21; `@Version` yalnız todos / workspace_members'ta) |
 
 ## Current schema
 
-`users`, `workspaces` per local V1. `users.version` remains only because `BaseEntity` maps `@Version` (TD-6).
+`users`, `workspaces` (V1 + V2).
+
+Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` (`created_at` `updatable=false`, `updated_at`; Spring Data auditing). `@Version` base class'ta değil; ihtiyaç duyan entity (Todo, WorkspaceMember) kendisi tanımlar.
 
 ## Package layout
 
 ```text
 common/config     JpaAuditingConfig (DateTimeProvider → Instant)
 common/domain     BaseEntity, AuditableEntity
+auth/             AuthService, AppUserDetailsService, AppUserDetails, SecurityConfig
+auth/jwt          JwtConfig, JwtProperties, TokenService
+auth/exception    EmailAlreadyExistException
+auth/web          AuthController, AuthExceptionHandler, dto/ (Login/Register Request, RegisterResponse, TokenResponse)
 user/domain       User (normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
+user/web          UserController (GET /api/users/me, test)
 ```
 
-Planned (spec §5): `auth/` — AuthService, UserDetailsService, `config/SecurityConfig`, JWT, refresh token.
+Planned: `auth/` — `JwtDecoder` + resource server config, refresh token (`auth/domain/RefreshToken*`).
 
 ## Known technical debt
 
 | ID | Debt | Planned phase |
 |---|---|---|
-| TD-2 | `users.version` spec'te yok (§21); TD-6 ile birlikte çözülecek | Before Todo entity |
 | TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
 | TD-4 | Login rate limit (spec §10) henüz yok | Phase 3 |
-| TD-6 | `BaseEntity` her entity'ye `@Version` ekliyor (spec §21: mekanik `@Version` yok) | Before Todo entity |
 
 ## Current learning focus
 

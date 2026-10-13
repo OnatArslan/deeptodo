@@ -1,6 +1,5 @@
 package com.onatarslan.deeptodo.auth;
 
-import com.onatarslan.deeptodo.auth.domain.AppUserDetails;
 import com.onatarslan.deeptodo.user.domain.User;
 import com.onatarslan.deeptodo.user.domain.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;

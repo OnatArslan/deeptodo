@@ -1,6 +1,6 @@
-package com.onatarslan.deeptodo.auth.exception;
+package com.onatarslan.deeptodo.auth.web;
 
-import com.onatarslan.deeptodo.auth.web.AuthController;
+import com.onatarslan.deeptodo.auth.exception.EmailAlreadyExistException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.AuthenticationException;

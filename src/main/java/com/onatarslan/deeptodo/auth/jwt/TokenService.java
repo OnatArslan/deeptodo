@@ -1,5 +1,7 @@
 package com.onatarslan.deeptodo.auth.jwt;
 
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
@@ -38,8 +40,12 @@ public class TokenService {
                 .claim("authorities", authorities)
                 .build();
 
+        // ─── Header: nasıl mühürlendiği ──────────────────────────────────────
+        JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256)   // alg
+                .keyId(properties.keyId())                                  // kid
+                .build();
 
-        String token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(header,claims)).getTokenValue();
 
         return new IssuedAccessToken(token, expiresAt);
     }

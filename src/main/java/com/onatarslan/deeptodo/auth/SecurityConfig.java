@@ -36,10 +36,9 @@ public class SecurityConfig {
                         // Geri kalan her şey kimlik istiyor. Bu satır en sonda durmalı.
                         .anyRequest().authenticated()
                 )
-
-                // GEÇİCİ: Şimdilik test edebilmek için. 12. mesajda yerini JWT alacak.
-                .httpBasic(Customizer.withDefaults());
-
+                // YENİ: kimliği bulan filter artık Bearer token okuyor.
+                // jwt(...) context'teki JwtDecoder bean'ini otomatik buluyor.
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
         return http.build();
     }
 

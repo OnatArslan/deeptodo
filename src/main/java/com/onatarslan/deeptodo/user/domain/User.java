@@ -7,13 +7,13 @@ import java.util.Locale;
 
 @Entity
 @Table(name = "users")
-@EntityListeners(UserExampleListener.class)
+@EntityListeners(UserExampleListener.class) // this is for example
 public class User extends AuditableEntity {
 
     @Column(name = "email", nullable = false)
     private String email;
 
-    @Column(name = "display_name")
+    @Column(name = "display_name", nullable = false)
     private String displayName;
 
     @Column(name = "password_hash", nullable = false)
@@ -28,11 +28,7 @@ public class User extends AuditableEntity {
 
     }
 
-    public static User register(String normalizedEmail, String passwordHash, String displayName) {
-        return new User(normalizedEmail, passwordHash, displayName);
-    }
-
-    private User(String email, String passwordHash, String displayName) {
+    public User(String email, String passwordHash, String displayName) {
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("display name can not be null or blank");
         }
@@ -45,12 +41,7 @@ public class User extends AuditableEntity {
         this.status = UserStatus.ACTIVE;
     }
 
-//
-//    @PrePersist
-//    @PreUpdate
-//    void normalizeEmail() {
-//        System.out.println("Hello world");
-//    }
+
 
     public void changePasswordHash(String newPasswordHash) {
         if (newPasswordHash == null || newPasswordHash.isBlank()) {
