@@ -22,4 +22,8 @@ deeptodo:
       key-id: deeptodo-2026-10
       private-key-location: file:./secrets/jwt-private.pem
       public-key-location: file:./secrets/jwt-public.pem
-
+    refresh-token:
+      ttl: 14d
+      cookie-name: refresh_token
+      # Local HTTP'de false; production (HTTPS) ortamında true verilmeli.
+      cookie-secure: ${REFRESH_COOKIE_SECURE:false}

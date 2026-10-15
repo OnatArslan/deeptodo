@@ -10,10 +10,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.security.converter.RsaKeyConverters;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,7 +23,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
 
 @Configuration
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, RefreshTokenProperties.class})
 public class JwtConfig {
 
     @Bean
@@ -45,18 +46,43 @@ public class JwtConfig {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(RSAKey jwtSigningKey) throws JOSEException {
+    JwtDecoder jwtDecoder(RSAKey jwtSigningKey, JwtProperties properties) throws JOSEException {
         // Kontrolcü SADECE public key'i alıyor (mühür örneği).
         // Private key'e ihtiyacı yok; RS256'nın asimetrik olmasının anlamı bu (T4).
         //
         // withPublicKey varsayılan olarak RS256 bekliyor. Token'ın header'ında
         // "alg": "none" ya da "HS256" yazsa bile kabul etmiyor. Algoritmayı
         // token değil doğrulayıcı belirliyor (T4).
-        return NimbusJwtDecoder.withPublicKey(jwtSigningKey.toRSAPublicKey()).build();
+        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withPublicKey(jwtSigningKey.toRSAPublicKey()).build();
+
+        OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
+                new JwtTimestampValidator(),
+                new JwtIssuerValidator(properties.issuer())
+        );
+
+        jwtDecoder.setJwtValidator(validator);
+
+        return jwtDecoder;
     }
 
     @Bean
     Clock clock() {
         return Clock.systemUTC();
     }
+
+    @Bean
+    JwtAuthenticationConverter jwtAuthenticationConverter() {
+        var authoritiesConverter = new JwtGrantedAuthoritiesConverter();
+
+        authoritiesConverter.setAuthoritiesClaimName("authorities");
+        authoritiesConverter.setAuthorityPrefix("");
+
+        var converter = new JwtAuthenticationConverter();
+
+        converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
+
+        return converter;
+    }
+
+
 }

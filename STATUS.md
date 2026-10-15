@@ -6,7 +6,7 @@
 
 ## Last updated
 
-2026-10-13
+2026-10-15
 
 ## Current phase
 
@@ -16,21 +16,25 @@ Karar (2026-10-10): Phase 3'ün authentication kısmı Phase 1'den önce yapıl�
 
 ## Active task
 
-### DT-003 — Register + login + JWT access token üretimi
+### DT-003 — Register + login + JWT + refresh token
 
-Status: `IN PROGRESS` (yeniden başlatıldı, 2026-10-11)
+Status: `IN PROGRESS`
 
 Done:
-- `spring-boot-starter-security`, `spring-boot-starter-security-oauth2-resource-server`
-- `SecurityConfig`: stateless, csrf kapalı, `/api/auth/**` permitAll, geçici `httpBasic`; `PasswordEncoderFactories` (default bcrypt); `AuthenticationManager` = `ProviderManager(DaoAuthenticationProvider)`
-- `AppUserDetailsService` / `AppUserDetails` (aktiflik `status == ACTIVE`'den türetilir; ayrı `enabled` kolonu yok)
-- JWT üretimi: `JwtConfig` (RSA key'ler `secrets/`'tan, `NimbusJwtEncoder`, `kid`), `JwtProperties`, `TokenService` (`iss`, `sub`=userId, `iat`, `exp`, `jti`, `authorities`), TTL 15m
-- `POST /api/auth/register` 201, `POST /api/auth/login` → `TokenResponse`, `GET /api/users/me` (test)
-- `AuthExceptionHandler`: `AuthenticationException` → 401, `EmailAlreadyExistException` → 409
+- Access token: RS256 JWT (`TokenService`), `NimbusJwtDecoder` + timestamp/issuer validator, `oauth2ResourceServer(jwt)`, `authorities` claim → authorities (prefix yok); `BearerTokenResolver` `/api/auth/**`'da token okumaz; `/actuator/health` permitAll
+- Refresh token (2026-10-15):
+  - V3 `refresh_tokens` (spec §7.9: `used_at`, `replaced_by_token_id` self-FK, `expires_at > created_at`, cascade yok); `RefreshToken` entity (scalar `userId`), `RefreshTokenRepository` (koşullu `markUsed`, `linkSuccessor`, `revokeFamily`)
+  - Opaque 256-bit token, DB'de yalnız SHA-256 hex; TTL 14 gün
+  - Cookie: `refresh_token`, HttpOnly, SameSite=Strict, Path=/api/auth, Secure `REFRESH_COOKIE_SECURE` ile (local false)
+  - `POST /api/auth/register` 201 → id + access token + refresh cookie (karar: register otomatik login)
+  - `POST /api/auth/login` → access token + refresh cookie (yeni aile)
+  - `POST /api/auth/refresh` → rotation; kullanılmış token tekrar gelirse aile revoke (karar: **katı reuse detection**, grace window yok); DEACTIVATED kullanıcı → aile revoke + 401; reuse revoke'u `noRollbackFor` ile commit edilir
+  - `POST /api/auth/logout` → aile revoke, cookie temizlenir, 204 (idempotent)
+  - CSRF kapalı kalıyor; cookie'li endpoint'ler SameSite=Strict + Path ile korunuyor (spec §10 kararı)
 
-Manual smoke ✅ (2026-10-12): register 201; duplicate 409; login 200 + RS256 JWT; yanlış şifre / bilinmeyen kullanıcı / DEACTIVATED → aynı 401; bilinen ve bilinmeyen email için yanıt süresi eşit (~86 ms, timing koruması çalışıyor); GET register 405; `/api/users/me` httpBasic 200, kimliksiz 401; validation 400.
+Manual smoke ✅ (2026-10-15): register 201 + cookie; login 200; refresh 200 ve cookie döner, zincir `replaced_by` ile bağlı; eski token tekrar → 401 + aile revoke + cookie silinir; revoke sonrası halef → 401; cookie'siz refresh 401; logout 204 sonrası refresh 401; aynı token'la 3 eşzamanlı refresh → 1×200, 2×401, aile revoke (katı reuse'un beklenen sonucu); DEACTIVATED → 401; token_hash hep 64 karakter.
 
-Next: token doğrulama — `oauth2ResourceServer(jwt)` + `JwtDecoder`, `httpBasic` kaldırılacak.
+Next: hesap kapatma (`DELETE /api/users/me` + kullanıcının bütün aileleri revoke), login rate limit, `CurrentUser` yardımcısı.
 
 ## Phase status
 
@@ -58,10 +62,11 @@ Next: token doğrulama — `oauth2ResourceServer(jwt)` + `JwtDecoder`, `httpBasi
 |---|---|
 | V1 | `users` (incl. `password_hash varchar(255)`), `workspaces`; named PKs, no time defaults, `~ '\S'` blank checks |
 | V2 | `users.version` kolonu kaldırıldı (spec §21; `@Version` yalnız todos / workspace_members'ta) |
+| V3 | `refresh_tokens` (spec §7.9) + `user_id`, `family_id` index'leri |
 
 ## Current schema
 
-`users`, `workspaces` (V1 + V2).
+`users`, `workspaces`, `refresh_tokens` (V1–V3).
 
 Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` (`created_at` `updatable=false`, `updated_at`; Spring Data auditing). `@Version` base class'ta değil; ihtiyaç duyan entity (Todo, WorkspaceMember) kendisi tanımlar.
 
@@ -70,22 +75,24 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 ```text
 common/config     JpaAuditingConfig (DateTimeProvider → Instant)
 common/domain     BaseEntity, AuditableEntity
-auth/             AuthService, AppUserDetailsService, AppUserDetails, SecurityConfig
-auth/jwt          JwtConfig, JwtProperties, TokenService
-auth/exception    EmailAlreadyExistException
-auth/web          AuthController, AuthExceptionHandler, dto/ (Login/Register Request, RegisterResponse, TokenResponse)
+auth/             AuthService, AuthTokens, AppUserDetailsService, AppUserDetails, SecurityConfig
+auth/domain       RefreshToken, RefreshTokenRepository
+auth/jwt          JwtConfig, JwtProperties, RefreshTokenProperties, TokenService (access + refresh)
+auth/exception    EmailAlreadyExistException, InvalidRefreshTokenException
+auth/web          AuthController, AuthExceptionHandler, RefreshTokenCookies, dto/
+user/             UserService
 user/domain       User (normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
-user/web          UserController (GET /api/users/me, test)
+user/web          UserController (GET /api/users/me), dto/MeResponse
 ```
-
-Planned: `auth/` — `JwtDecoder` + resource server config, refresh token (`auth/domain/RefreshToken*`).
 
 ## Known technical debt
 
 | ID | Debt | Planned phase |
 |---|---|---|
 | TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
-| TD-4 | Login rate limit (spec §10) henüz yok | Phase 3 |
+| TD-4 | Login rate limit (spec §10) henüz yok; `ProviderManager`'a event publisher bağlı değil | Phase 3 |
+| TD-8 | Rotation / reuse için concurrency testi (spec §15 istisnası) yazılmadı — Onat kararıyla ertelendi; Testcontainers gerekecek | Phase 4 başı |
+| TD-9 | `REFRESH_COOKIE_SECURE` production'da true verilmeli | Phase 4 deploy |
 
 ## Current learning focus
 
