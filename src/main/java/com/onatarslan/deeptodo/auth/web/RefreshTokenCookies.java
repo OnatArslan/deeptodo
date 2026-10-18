@@ -1,6 +1,6 @@
 package com.onatarslan.deeptodo.auth.web;
 
-import com.onatarslan.deeptodo.auth.jwt.RefreshTokenProperties;
+import com.onatarslan.deeptodo.auth.refresh.RefreshTokenProperties;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 

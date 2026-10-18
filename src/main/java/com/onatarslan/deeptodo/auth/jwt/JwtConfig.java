@@ -5,7 +5,6 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
@@ -20,10 +19,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.time.Clock;
 
 @Configuration
-@EnableConfigurationProperties({JwtProperties.class, RefreshTokenProperties.class})
 public class JwtConfig {
 
     @Bean
@@ -63,11 +60,6 @@ public class JwtConfig {
         jwtDecoder.setJwtValidator(validator);
 
         return jwtDecoder;
-    }
-
-    @Bean
-    Clock clock() {
-        return Clock.systemUTC();
     }
 
     @Bean

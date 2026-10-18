@@ -1,4 +1,4 @@
-package com.onatarslan.deeptodo.auth.domain;
+package com.onatarslan.deeptodo.auth.refresh;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -26,10 +26,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
                and t.revokedAt is null
             """)
     int markUsed(@Param("id") UUID id, @Param("now") Instant now);
-
-    @Modifying
-    @Query("update RefreshToken t set t.replacedByTokenId = :successorId where t.id = :id")
-    int linkSuccessor(@Param("id") UUID id, @Param("successorId") UUID successorId);
 
     // Reuse tespiti ve logout: ailenin henüz revoke edilmemiş bütün token'ları.
     @Modifying

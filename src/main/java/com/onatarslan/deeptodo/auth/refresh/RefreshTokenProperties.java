@@ -1,4 +1,4 @@
-package com.onatarslan.deeptodo.auth.jwt;
+package com.onatarslan.deeptodo.auth.refresh;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

@@ -22,17 +22,18 @@ Status: `IN PROGRESS`
 
 Done:
 - Access token: RS256 JWT (`TokenService`), `NimbusJwtDecoder` + timestamp/issuer validator, `oauth2ResourceServer(jwt)`, `authorities` claim → authorities (prefix yok); `BearerTokenResolver` `/api/auth/**`'da token okumaz; `/actuator/health` permitAll
-- Refresh token (2026-10-15):
-  - V3 `refresh_tokens` (spec §7.9: `used_at`, `replaced_by_token_id` self-FK, `expires_at > created_at`, cascade yok); `RefreshToken` entity (scalar `userId`), `RefreshTokenRepository` (koşullu `markUsed`, `linkSuccessor`, `revokeFamily`)
+- Refresh token (2026-10-15, refactor aynı gün):
+  - V3 `refresh_tokens` (spec §7.9; `replaced_by_token_id` yok — katı reuse için `used_at` + `family_id` yeterli; push'lanmış V3 Onat kararıyla yerinde düzenlendi + DB reset)
+  - `auth/refresh`: `RefreshToken` (scalar `userId`; `isUsed` / `isRevoked` / `isExpired`), `RefreshTokenRepository` (koşullu `markUsed`, `revokeFamily`), `RefreshTokenService` (`issue` / `rotate` / `revokeFamilyOf`), `RotationResult` (sealed: `Rotated` | `Rejected(reason)`)
+  - `auth/jwt`: `AccessTokenService` yalnız JWT üretir; `Clock` `common/config/ClockConfig`'te; properties `@ConfigurationPropertiesScan` ile
+  - Rotation sırası: bul → revoke/used(reuse→aile revoke)/expired → kullanıcı ACTIVE mi (değilse aile revoke) → koşullu `markUsed` (0 → reuse) → aynı aileden yeni token. Reddetme sonuç olarak döner, revoke normal commit edilir; exception `AuthService`'te transaction dışında (`noRollbackFor` yok)
   - Opaque 256-bit token, DB'de yalnız SHA-256 hex; TTL 14 gün
   - Cookie: `refresh_token`, HttpOnly, SameSite=Strict, Path=/api/auth, Secure `REFRESH_COOKIE_SECURE` ile (local false)
   - `POST /api/auth/register` 201 → id + access token + refresh cookie (karar: register otomatik login)
-  - `POST /api/auth/login` → access token + refresh cookie (yeni aile)
-  - `POST /api/auth/refresh` → rotation; kullanılmış token tekrar gelirse aile revoke (karar: **katı reuse detection**, grace window yok); DEACTIVATED kullanıcı → aile revoke + 401; reuse revoke'u `noRollbackFor` ile commit edilir
-  - `POST /api/auth/logout` → aile revoke, cookie temizlenir, 204 (idempotent)
-  - CSRF kapalı kalıyor; cookie'li endpoint'ler SameSite=Strict + Path ile korunuyor (spec §10 kararı)
+  - `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout` (204, idempotent)
+  - Karar: **katı reuse detection**, grace window yok (spec §10); CSRF kapalı, cookie'li endpoint'ler SameSite=Strict + Path ile korunuyor
 
-Manual smoke ✅ (2026-10-15): register 201 + cookie; login 200; refresh 200 ve cookie döner, zincir `replaced_by` ile bağlı; eski token tekrar → 401 + aile revoke + cookie silinir; revoke sonrası halef → 401; cookie'siz refresh 401; logout 204 sonrası refresh 401; aynı token'la 3 eşzamanlı refresh → 1×200, 2×401, aile revoke (katı reuse'un beklenen sonucu); DEACTIVATED → 401; token_hash hep 64 karakter.
+Manual smoke ✅ (2026-10-15, refactor sonrası tekrar): register 201 + cookie; login 200; refresh 200 ve cookie döner; 3 ardışık refresh zinciri 200; eski token tekrar → 401 + aile revoke + cookie silinir; revoke sonrası halef → 401; cookie'siz refresh 401; logout 204 sonrası refresh 401; aynı token'la 3 eşzamanlı refresh → 1×200, 2×401, aile revoke (katı reuse'un beklenen sonucu); DEACTIVATED → 401 (token tüketilmeden aile revoke).
 
 Next: hesap kapatma (`DELETE /api/users/me` + kullanıcının bütün aileleri revoke), login rate limit, `CurrentUser` yardımcısı.
 
@@ -62,7 +63,7 @@ Next: hesap kapatma (`DELETE /api/users/me` + kullanıcının bütün aileleri r
 |---|---|
 | V1 | `users` (incl. `password_hash varchar(255)`), `workspaces`; named PKs, no time defaults, `~ '\S'` blank checks |
 | V2 | `users.version` kolonu kaldırıldı (spec §21; `@Version` yalnız todos / workspace_members'ta) |
-| V3 | `refresh_tokens` (spec §7.9) + `user_id`, `family_id` index'leri |
+| V3 | `refresh_tokens` (spec §7.9, halef bağlantısı yok) + `user_id`, `family_id` index'leri |
 
 ## Current schema
 
@@ -73,11 +74,11 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 ## Package layout
 
 ```text
-common/config     JpaAuditingConfig (DateTimeProvider → Instant)
+common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
-auth/             AuthService, AuthTokens, AppUserDetailsService, AppUserDetails, SecurityConfig
-auth/domain       RefreshToken, RefreshTokenRepository
-auth/jwt          JwtConfig, JwtProperties, RefreshTokenProperties, TokenService (access + refresh)
+auth/             AuthService (register/login/refresh/logout), AuthTokens, AppUserDetailsService, AppUserDetails, SecurityConfig
+auth/jwt          JwtConfig, JwtProperties, AccessTokenService
+auth/refresh      RefreshToken, RefreshTokenRepository, RefreshTokenProperties, RefreshTokenService, RotationResult
 auth/exception    EmailAlreadyExistException, InvalidRefreshTokenException
 auth/web          AuthController, AuthExceptionHandler, RefreshTokenCookies, dto/
 user/             UserService

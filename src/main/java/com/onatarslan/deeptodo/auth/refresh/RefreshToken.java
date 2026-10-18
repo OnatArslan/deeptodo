@@ -1,4 +1,4 @@
-package com.onatarslan.deeptodo.auth.domain;
+package com.onatarslan.deeptodo.auth.refresh;
 
 import com.onatarslan.deeptodo.common.domain.BaseEntity;
 import jakarta.persistence.Column;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @Table(name = "refresh_tokens")
 public class RefreshToken extends BaseEntity {
 
-    // Association değil scalar UUID: refresh akışı User'a navigasyon istemiyor (sub için id yeterli),
+    // Association değil scalar UUID: refresh akışı User'a navigasyon istemiyor,
     // lazy proxy / open-in-view=false tuzaklarından kaçınıyoruz. FK yine DB'de.
     @Column(name = "user_id", nullable = false, updatable = false)
     private UUID userId;
@@ -33,14 +33,13 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "expires_at", nullable = false, updatable = false)
     private Instant expiresAt;
 
+    // Rotation'da set edilir (RefreshTokenRepository.markUsed). Doluysa token bir daha kullanılamaz.
     @Column(name = "used_at")
     private Instant usedAt;
 
+    // Logout, reuse ya da deactivation'da set edilir (RefreshTokenRepository.revokeFamily).
     @Column(name = "revoked_at")
     private Instant revokedAt;
-
-    @Column(name = "replaced_by_token_id")
-    private UUID replacedByTokenId;
 
     // For JPA
     protected RefreshToken() {
@@ -57,16 +56,20 @@ public class RefreshToken extends BaseEntity {
         }
     }
 
-    // Login: yeni bir aile başlatır. Rotation: aynı familyId ile çağrılır.
     public static RefreshToken issue(UUID userId, UUID familyId, String tokenHash, Instant now, Instant expiresAt) {
         return new RefreshToken(userId, familyId, tokenHash, now, expiresAt);
     }
 
-    // Kullanılabilir mi: hiç kullanılmamış, revoke edilmemiş ve süresi dolmamış.
-    // Not: eşzamanlı iki refresh'te ikisi de burada true görebilir; rotation'ın doğruluğu
-    // bu kontrole değil, repository'deki koşullu update'e ("where used_at is null") dayanacak (spec §7.9).
-    public boolean isActive(Instant now) {
-        return usedAt == null && revokedAt == null && now.isBefore(expiresAt);
+    public boolean isUsed() {
+        return usedAt != null;
+    }
+
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
+
+    public boolean isExpired(Instant now) {
+        return !now.isBefore(expiresAt);
     }
 
     public UUID getUserId() {
@@ -77,27 +80,7 @@ public class RefreshToken extends BaseEntity {
         return familyId;
     }
 
-    public String getTokenHash() {
-        return tokenHash;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
     public Instant getExpiresAt() {
         return expiresAt;
-    }
-
-    public Instant getUsedAt() {
-        return usedAt;
-    }
-
-    public Instant getRevokedAt() {
-        return revokedAt;
-    }
-
-    public UUID getReplacedByTokenId() {
-        return replacedByTokenId;
     }
 }

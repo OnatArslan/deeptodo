@@ -567,14 +567,12 @@ Security phase'inde eklenir. Her rotation yeni row üretir.
 | `expires_at` | `timestamptz` | no |
 | `used_at` | `timestamptz` | yes |
 | `revoked_at` | `timestamptz` | yes |
-| `replaced_by_token_id` | `uuid` | yes |
 | `created_at` | `timestamptz` | no |
 
 Constraints:
 - PK
 - user FK
 - token_hash UNIQUE
-- replacement self-FK when present
 - expiry created_at'tan sonra olmalı
 
 Security behavior:
@@ -603,6 +601,7 @@ reuse detected
 - logout current family/session'ı revoke eder
 - account deactivation user'ın aktif refresh token'larını revoke eder
 - mekanik `@Version` zorunlu değildir; correctness transaction + conditional update/query ile tasarlanır
+- token'lar arası halef bağlantısı (`replaced_by_token_id`) tutulmaz: katı reuse detection için `used_at` + `family_id` yeterli (karar 2026-10-15, §10). Grace window'a geçilirse bu karar yeniden açılır.
 
 ## 8. Relationship summary
 
@@ -700,7 +699,9 @@ Gerekçe: uygulama public HTTPS üzerinden internete açılır; sınırsız dene
 
 Cookie kullanan refresh/logout endpoint'lerinde CSRF kararı bilinçli ele alınır.
 
-**Açık karar — eşzamanlı refresh:** kullanıcı uygulamayı iki sekmede açıkken iki sekme aynı refresh token'ı neredeyse aynı anda kullanabilir. İkinci istek "kullanılmış token" olarak görülür, reuse detection tetiklenir ve kullanıcının oturumu düşer (yanlış pozitif). Kısa bir grace window ile meşru eşzamanlı kullanımın tolere edilip edilmeyeceği Phase 3'te, reuse detection uygulanmadan önce bilinçli olarak kararlaştırılır ve STATUS'a yazılır. Karar verilene kadar varsayılan davranış spec'teki katı reuse detection'dır.
+**Karar (2026-10-15) — eşzamanlı refresh: katı reuse detection, grace window yok.** Kullanıcı uygulamayı iki sekmede açıkken iki sekme aynı refresh token'ı neredeyse aynı anda kullanabilir; ikinci istek "kullanılmış token" olarak görülür, aile revoke edilir ve kullanıcı yeniden login olur. Bu yanlış pozitif, basitlik ve güvenlik karşılığında bilinçli olarak kabul edildi.
+
+Refresh token cookie'si: `HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, production'da `Secure`. CSRF koruması kapalı kalır; cookie'li `/refresh` ve `/logout` cross-site isteklere karşı `SameSite=Strict` ile korunur.
 
 ## 11. API surface — V1 target
 
