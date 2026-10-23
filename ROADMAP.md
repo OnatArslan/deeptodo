@@ -13,7 +13,7 @@ Adım bitince `[x]` ve PR numarası yazılır. Sıra değişikliği Onat'ın kar
 
 Bugün commit edilmemiş duran auth tamamlama ve workspace işi, okunabilir PR'lara bölünerek `develop`'a alınır.
 
-- [ ] **A1** Ortam: deeptodo-postgres'in host portunu çakışmayan bir porta taşı (5432'de başka proje var) — `compose.yaml` + `DB_URL` varsayılanı
+- [x] **A1** Ortam: deeptodo-postgres'in host portunu çakışmayan bir porta taşı (5432'de başka proje var) — `compose.yaml` + `DB_URL` varsayılanı (#2)
 - [ ] **A2** Hata sözleşmesi: `common/error` (404 / 403 / 409) + `SecurityProblemHandler` (filter zinciri 401 / 403 ProblemDetail) + validation ProblemDetail
 - [ ] **A3** Hesap yönetimi: `CurrentUser`, `PATCH/DELETE /api/users/me`, hesap kapatınca bütün refresh token'ların revoke'u
 - [ ] **A4** Login rate limit (in-memory, email + IP, 429 + `Retry-After`)
@@ -58,6 +58,12 @@ Bugün commit edilmemiş duran auth tamamlama ve workspace işi, okunabilir PR'l
 - [ ] **F2** Production compose: app + postgres, healthcheck, volume, env dosyası örneği
 - [ ] **F3** CI: GitHub Actions ile build + test
 - [ ] **F4** ⚠️ Host seçimi ve kurulum: VPS + reverse proxy (HTTPS) ya da PaaS — seçenekler sunulur, karar Onat'ın
+  - Öneri (2026-10-23): **Oracle Cloud Always Free**, Ampere A1 ARM VM (4 OCPU / 24 GB RAM / 200 GB disk, süresiz).
+    Tek VM'de `docker compose`: app + PostgreSQL + Redis + Kafka (KRaft) + Caddy (Let's Encrypt ile HTTPS); domain DuckDNS ya da ucuz bir domain.
+    Tuzaklar: kart doğrulaması; popüler region'larda A1 kapasitesi bulunamayabilir (home region sonradan değişmez);
+    düşük kullanımlı Always Free VM'ler geri alınabilir (Pay-As-You-Go'ya yükseltmek bunu kaldırır, limit içinde ücret yok);
+    image'lar arm64 olmalı (F1); yedek / güncelleme / firewall bizde.
+    Elenenler: Render / Koyeb free (512 MB, uyku — Kafka sığmaz), GCP e2-micro (1 GB), AWS / Azure (süreli kredi), Fly.io (free yok), managed Kafka free tier'ları (deneme ya da çok kısıtlı).
 - [ ] **F5** ⚠️ Release: `develop` → `main`, `v1.0.0` tag, ilk deploy, public smoke (API, OpenAPI, health)
 
 ## G — Redis / Kafka öğrenme modülleri (spec §2.1, Phase 5)

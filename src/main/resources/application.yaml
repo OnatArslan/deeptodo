@@ -3,8 +3,8 @@ spring:
     name: deeptodo
 
   datasource:
-    # Default'lar compose.yaml'daki local PostgreSQL'e karsilik gelir; prod'da env variable ile ezilir.
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/deeptodo}
+    # Default'lar compose.yaml'daki local PostgreSQL'e karsilik gelir (host portu 5433); prod'da env variable ile ezilir.
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/deeptodo}
     username: ${DB_USERNAME:deeptodo}
     password: ${DB_PASSWORD:deeptodo}
 

@@ -207,7 +207,7 @@ docker compose up -d        # local PostgreSQL (+ ilgili PR'lardan sonra Redis, 
 ./mvnw clean verify
 ```
 
-Not: 5432 başka bir container tarafından kullanılıyorsa deeptodo-postgres başlamaz; STATUS'taki ortam notuna bak.
+Local PostgreSQL host'ta `localhost:5433`'te (5432 bu makinede başka bir projede). `DB_URL` varsayılanı buna göre.
 
 ---
 
