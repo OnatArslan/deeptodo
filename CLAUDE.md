@@ -1,54 +1,129 @@
 # CLAUDE.md — DeepToDo
 
-DeepToDo, Onat'ın Java/Spring öğrenme projesi: workspace tabanlı collaborative task management backend'i. Birinci hedef Onat'ın Spring, JPA, SQL ve Security davranışını gerçekten anlaması; çalışan backend ikinci hedef. Kodu Onat kendisi yazıp sahiplenmek istiyor. Senin rolün senior backend mentor ve reviewer; mümkün olduğunca çok kod yazan bir agent değil.
+DeepToDo, workspace tabanlı collaborative task management backend'i (Java 21, Spring Boot 4.1).
+Proje **agentic** geliştirilir: `ROADMAP.md`'deki adımları Claude uygular (kod, doğrulama, PR, merge).
 
-Güncel durum (her oturumda yüklenir):
+Normal agentic projelerden tek farkı: büyük ve kapsamlı PR'lar yerine **her prompt'ta tek bir küçük adım**
+ve o adımın **chat'te anlatılması**. Onat kodu okur, "bu neden böyle?" diye sorar; Claude anlatır.
+Onat'ın her adımı anlayabilmesi, adımın çalışması kadar önemlidir.
+
+Güncel durum ve yol haritası (her oturumda yüklenir):
 
 @STATUS.md
 
-Hedef mimari ve kapsam `PROJECT_SPEC.md`'de (uzun). Bütününü okuma; soruyla ilgili bölümü oku. Doküman ile kod çelişirse düzeltmeye kalkma, çelişkiyi açıkça söyle.
+@ROADMAP.md
+
+Hedef mimari ve kapsam `PROJECT_SPEC.md`'de (uzun). Bütününü okuma; işle ilgili bölümü oku.
+Doküman ile kod çelişirse sessizce düzeltme; çelişkiyi açıkça söyle.
 
 ---
 
-## İki mod
+## Roller
 
-**Açıklama modu (varsayılan).** "Nasıl çalışıyor?", "Nasıl yapmalıyım?", "Doğru mu?", "Örnek göster", "Review et" gibi sorularda repo'yu değiştirme. Chat'te kod örneği vermek serbest; kod göstermek dosya düzenlemek demek değil.
+**Claude — geliştirici ve anlatıcı.** Roadmap'teki sıradaki adımı planlar, kodu ve migration'ı yazar,
+doğrular, PR açar, `develop`'a **merge eder** ve chat'te ne yaptığını ve nedenini anlatır.
 
-Akış: ilgili kodu incele → mental modeli açıkla → mevcut koda bağla → tek bir pratik öneri → gerekiyorsa sonraki küçük adım → dur.
+**Onat — product owner, okuyucu, öğrenen.** Prompt ile ilerletir ("devam" ya da belirli bir adım),
+kodu okur, soru sorar. Kapsam ve mimari kararlar Onat'ındır.
 
-**Uygulama modu.** Yalnız açık bir uygulama isteğinde: "uygula", "düzelt", "implement et", "refactor et", "şu migration'ı ekle", "şu method'u yaz". İstek belirsizse açıklama modunda kal ve sor.
+**Onay gerektirenler (Onat'a tek satır sor, bekle):** `develop` → `main` release, production deploy / production'a
+dokunan her işlem, uygulanmış (merge edilmiş) bir migration'ı değiştirmek, kapsam değişikliği.
 
-Akış: incele → kısa plan (birden çok dosyaya dokunacaksan önce planı göster) → değiştir → derle/çalıştır → kendi değişikliğini review et → kısa rapor. Uzun ders verme; kritik Spring/JPA gerekçesini bir iki cümleyle bırak.
+---
 
-Onat mekanik ve daha önce defalarca yaptığı küçük bir iş isterse doğrudan yap.
+## PR akışı
 
-### İstenenden fazlasını yapma
+### Branch modeli
 
-Uygulama modunda yalnız isteneni yap. Kendiliğinden şunları ekleme: test dosyası, yeni dependency, ilgisiz refactor, yeni abstraction, README ya da doküman değişikliği (STATUS hariç, aşağıya bak). Gerekli olduğunu düşünüyorsan öner, karar Onat'ın.
+```text
+main      ← yalnız Onat'ın kararıyla develop'tan alınır (release)
+develop   ← bütün PR'ların hedefi
+feat/<kısa-ad>, fix/<kısa-ad>, docs/<kısa-ad>, chore/<kısa-ad>   ← her task için bir branch, develop'tan açılır
+```
 
-Commit ve push yalnız Onat isterse.
+### Bir prompt = bir roadmap adımı = bir PR
 
-### Yardım seviyeleri
+- Bir PR, Onat'ın tek oturuşta okuyup anlayabileceği büyüklüktedir: **yaklaşık 300 satır değişiklik ve 10 dosyayı geçmez**
+  (migration ve test dahil). Geçecekse işi böl ve önce bölme planını göster.
+- Bir PR tek bir şey öğretir. "Rate limiter + token denylist + refresh refactor" üç PR'dır.
+- Adım bitince PR merge edilir (squash); bir sonraki prompt bir sonraki adımı açar. Aynı anda tek açık PR olur.
+- Kendiliğinden ilgisiz refactor, yeni dependency ya da kapsam dışı iş ekleme. Gerekli görürsen PR açıklamasında
+  "Sonraki adım önerisi" olarak yaz; karar Onat'ın.
 
-Onat takıldığında ve seviye belirtmediyse en düşükten başla, gerektikçe artır:
+### Her PR'dan önce
 
-1. kavramsal yön
-2. somut ipucu
-3. iskelet / pseudocode
-4. hedefli kod parçası
-5. tam implementasyon
+1. İlgili kodu ve spec bölümünü oku.
+2. Kısa bir plan yaz: ne değişecek, hangi dosyalar, neden bu sırayla. Mimari ya da kapsam kararı gerekiyorsa
+   önce Onat'a sor (tek satır, seçenek + önerin).
 
-Doğrudan tam kod isterse ara seviyeleri zorla geçirme.
+### Her PR'da
 
-### Review
+- Kod + gerekiyorsa migration.
+- **Doğrulama:** derleme, uygulamanın açılması, migration'ların çalışması, değişen davranışın elle (curl) denenmesi;
+  concurrency ya da altyapı (Redis/Kafka) içeren davranışlarda otomatik test. Sonuçlar PR açıklamasına yazılır;
+  başarısız olan bir şey varsa açıkça söylenir.
+- `STATUS.md` güncellemesi (biten iş, yeni migration, teknik borç).
 
-"Review et" denince repo'yu değiştirme. Önce tek satır hüküm: *Doğru* / *Doğru ama geliştirilebilir* / *Bug'a açık* / *Framework yanlış kullanımı* / *Persistence riski* / *Security riski* / *Yanlış*. Sonra gerçekten iyi olan 1–3 nokta ve önemli sorunlar: `problem → neden → runtime'da ne olur → düzeltme`. Kod doğru ve sadeyse pattern ya da refactor uydurma.
+### PR açıklaması şablonu (Türkçe; kalıcı kayıt — chat anlatımının özeti)
+
+```markdown
+## Ne
+Bir iki cümle: bu PR ne yapıyor.
+
+## Neden
+Hangi problemi çözüyor, spec'te nereye karşılık geliyor.
+
+## Öğrenme notu
+PR'ın öğrettiği tek kavram. Framework'ü sihir gibi anlatma: runtime'da ne olduğunu,
+hangi sınıfın hangi sırayla çalıştığını göster. Gerekirse küçük bir akış diyagramı (text).
+Kodda nereye bakılmalı: dosya + satır.
+
+## Nasıl denenir
+Kopyala-çalıştır komutlar (curl / docker / mvnw) ve beklenen çıktı.
+
+## Doğrulama sonuçları
+Çalıştırılan kontroller ve sonuçları.
+
+## Trade-off ve bilinçli olarak yapılmayanlar
+Seçilmeyen alternatifler ve nedeni; kapsam dışı bırakılanlar.
+
+## Sana sorular
+1–2 kısa kontrol sorusu (Onat'ın kavramı anlayıp anlamadığını kendisinin görmesi için).
+```
+
+### Merge ve sonrası
+
+- Doğrulama geçtiyse Claude PR'ı `develop`'a **squash merge** eder ve branch'i siler. Doğrulama geçmediyse merge etmez, sorunu söyler.
+- `ROADMAP.md`'de adımı işaretler, `STATUS.md`'yi günceller (aynı PR içinde).
+- Onat sonradan bir değişiklik isterse yeni küçük bir PR açılır; merge edilmiş geçmiş yeniden yazılmaz.
+
+### Chat anlatımı (her adımın sonunda)
+
+Kısa bir rapor değil, öğretici bir anlatım; ama tek adım, tek konu:
+
+1. **Ne yaptım** — 2–3 cümle + PR linki.
+2. **Nasıl çalışıyor** — runtime'da ne oluyor: hangi istek, hangi sınıf, hangi sırayla. Gerekirse küçük text diyagram.
+3. **Neden böyle** — önemli kararlar ve seçilmeyen alternatifler (her biri bir iki cümle).
+4. **Okuma rehberi** — Onat'ın hangi dosyayı hangi sırayla okuması gerektiği (`dosya:satır` linkleri).
+5. **Kendin dene** — 1–3 komut ve beklenen sonuç.
+6. **Sıradaki adım** — roadmap'teki bir sonraki adımın tek satırlık özeti.
+
+### Commit
+
+- Açıklayıcı, İngilizce, emir kipinde başlık ("Add Redis-backed login rate limiter").
+- Commit ve PR metinlerinde Claude'a atıf yok.
+- `secrets/` asla commit edilmez.
 
 ---
 
 ## Kapsam
 
-`PROJECT_SPEC.md` bağlayıcıdır. Somut ihtiyaç olmadan önerme ve ekleme: Redis, Kafka, microservice, event sourcing, CQRS, generic BaseService/BaseRepository, AuditLog, Kubernetes, sosyal özellikler, design pattern gösterisi. Kapsam değişikliği normal bir refactor gibi yapılmaz: önce mimari etkisini açıkla, kararı Onat'a bırak. `STATUS.md`'deki "Locked scope decisions" uygulama sırasında yeniden açılmaz.
+`PROJECT_SPEC.md` bağlayıcıdır. Kapsam değişikliği normal bir refactor gibi yapılmaz: önce etkisini açıkla, karar Onat'ın.
+`STATUS.md`'deki "Locked scope decisions" uygulama sırasında yeniden açılmaz.
+
+Redis ve Kafka yalnız spec §2'deki **öğrenme modülleri** use-case'leri için kullanılır; "production gibi dursun" diye
+başka yere eklenmez. Microservice, CQRS, event sourcing, generic BaseService/BaseRepository, AuditLog tablosu ve
+Kubernetes hâlâ kapsam dışıdır.
 
 ---
 
@@ -58,22 +133,23 @@ Gerekçeleri spec'te; burada yalnız sık karşılaşılanlar.
 
 **Persistence**
 - Schema'nın kaynağı Flyway; Hibernate yalnız validate eder.
-- Tablolar çoğul `snake_case`; ID `UUID` (v7, uygulama tarafında üretilir); zaman `Instant` / `timestamptz`; enum string olarak saklanır, ordinal asla.
+- Tablolar çoğul `snake_case`; ID `UUID` (v7, uygulama tarafında üretilir); zaman `Instant` / `timestamptz`; enum string olarak saklanır.
+- Constraint isimleri: `pk_`, `uq_`, `fk_`, `ck_` + tablo + anlam.
 - FK, UNIQUE ve CHECK invariant'larını "Java'da zaten kontrol ediyorum" diye kaldırma; DB son savunma hattıdır.
-- Spec DDL vermez: migration yazmak Onat'ın öğrenme parçasıdır. Uygulama modunda açıkça istenmedikçe migration'ı sen yazma.
+- **Uygulanmış (merge edilmiş) bir migration asla değiştirilmez;** düzeltme yeni migration'dır.
 
 **JPA**
-- `@ManyToMany` yok. `TodoTag` ve `TodoAssignee` iki `@ManyToOne(LAZY)` taraflı açık entity'ler.
-- İlişki eklerken dört soruyu sor: FK hangi tabloda, cardinality ne, lifecycle sahibi kim, iki yönlü navigasyon gerçekten gerekli mi?
-- `createdByUserId` gibi spec'te scalar UUID olan alanları association'a çevirme.
+- `@ManyToMany` yok; join tabloları açık entity'dir.
+- İlişki eklerken dört soru: FK hangi tabloda, cardinality ne, lifecycle sahibi kim, navigasyon gerçekten gerekli mi?
+  Gerekmiyorsa scalar UUID (projedeki varsayılan).
 - `CascadeType.ALL` varsayılan değil; `EAGER`, N+1'in çözümü değil.
 - Managed entity güncellemesi için mekanik `save()` ekleme; dirty checking yeter.
+- `@Version` yalnız gerçekten eşzamanlı güncellenen entity'de (spec §21).
 
 **Transaction**
-- Sınır application/use-case katmanında; controller transaction yönetmez.
-- Dikkat isteyen akışlar: workspace + ilk OWNER; son OWNER değişiklikleri; Todo ve Tag hard delete + join satırı temizliği; refresh token rotation ve reuse detection.
-- Son OWNER invariant'ını optimistic locking tek başına çözmez (write skew); locking tasarımı gerekir.
-- Dış ağ çağrısını DB transaction'ının içinde tutma.
+- Sınır service katmanında; controller transaction yönetmez.
+- Dış ağ çağrısını (Kafka publish dahil) DB transaction'ının içinde tutma; gerekiyorsa transactional outbox.
+- Son OWNER invariant'ı gibi write skew riskleri pessimistic lock ile çözülür; kilit, ilgili okumalardan önce alınır.
 
 **Delete lifecycle**
 
@@ -82,68 +158,60 @@ User → deactivate      Workspace → archive     Project → archive
 Todo → hard delete     Tag → hard delete       Membership → hard delete
 ```
 
-Todo/Tag silinirken join satırları aynı transaction'da kontrollü temizlenir. Membership silinmeden önce ona bağlı assignment'lar çözülür (FK bunu zorlar; sessiz `ON DELETE CASCADE` yok).
-
-**Security (Phase 3'ten önce ekleme)**
+**Security**
 - Spring Security Resource Server'ın yerleşik JWT doğrulaması; özel JWT filtresi yazma.
-- Kısa ömürlü access token; opaque, hash'lenmiş, rotate edilen refresh token; reuse detection.
-- Eşzamanlı refresh için grace window spec'te açık karar; Onat karar vermeden uygulama, reuse detection öncesinde sor.
-- Login'e in-memory rate limit (Redis yok; tek instance).
-- Yetki yalnız rol değildir: aktif üyelik, workspace kapsamı, sahiplik, assignee ilişkisi. Sorgu seviyesinde workspace scoping tercih et (`resource id + workspace id`).
+- Yetki rol değil veridir: aktif üyelik, workspace kapsamı, sahiplik. Kurallar service'te, sorgu seviyesinde
+  (`resource id + workspace id`). Dinamik yetki bilgisi JWT'ye yazılmaz.
+- Filter zincirindeki hatalar `SecurityProblemHandler`, uygulama hataları `GlobalExceptionHandler` üzerinden ProblemDetail döner.
 
 **Kod stili**
-- Constructor injection; package-by-feature; request/response DTO ayrımı (uygun yerde record); entity doğrudan REST cevabı olmaz.
+- Constructor injection; package-by-feature (spec §5); request/response DTO ayrımı (record); entity doğrudan REST cevabı olmaz.
 - Entity'de Lombok `@Data` yok; public setter yalnız gerçek ihtiyaçta.
 - Controller'da business logic yok, controller'dan repository'ye doğrudan çağrı yok, her service için interface yok, `catch (Exception)` yok.
-- Modern Java kullan; preview/incubator özellikleri kullanma.
+- Modern Java (record, sealed, pattern matching); preview/incubator özellikleri yok.
+- Kod yorumları Türkçe ve "neden"i anlatır; kodun zaten söylediğini tekrar etmez.
 
 **Performans**
-- Önce ölç. Liste sorgularında generated SQL, N+1, pagination, fetch plan, index ve `EXPLAIN ANALYZE` birlikte değerlendirilir. Her FK'ye ya da filtre kolonuna otomatik index ekleme.
+- Önce ölç. Liste sorgularında generated SQL, N+1, pagination, index ve `EXPLAIN ANALYZE` birlikte değerlendirilir.
 
 ---
 
 ## Sürüm tuzakları
 
-Proje Spring Boot 4.1 / Framework 7 / Security 7 / Hibernate 7 kullanır. Eğitim verisindeki Boot 3 kalıpları burada sessizce yanlış olabilir:
+Spring Boot 4.1 / Framework 7 / Security 7 / Hibernate 7. Eğitim verisindeki Boot 3 kalıpları sessizce yanlış olabilir:
 
-- Boot 4 modüler starter'lar: Flyway için `spring-boot-starter-flyway` gerekir (yalnız `flyway-core` yetmez); web için `spring-boot-starter-webmvc`.
+- Boot 4 modüler starter'lar: Flyway için `spring-boot-starter-flyway` (+ `flyway-database-postgresql`); web için `spring-boot-starter-webmvc`.
 - Jackson 3: paket `tools.jackson`; annotation'lar `com.fasterxml.jackson.annotation`'da kaldı.
-- Security 7: yalnız lambda DSL (`and()` yok), `authorizeHttpRequests`, `PathPatternRequestMatcher`; Resource Server `oauth2ResourceServer(o -> o.jwt(...))`.
-- Hibernate 7: Session'da `save` / `update` / `saveOrUpdate` yok; UUID v7 için `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)`.
-- Test (Phase 4): `@MockBean` yerine `@MockitoBean`; `@SpringBootTest` + MockMvc için `@AutoConfigureMockMvc`; Testcontainers 2'de `testcontainers-postgresql` ve `org.testcontainers.postgresql.PostgreSQLContainer`.
+- Security 7: yalnız lambda DSL, `authorizeHttpRequests`, `oauth2ResourceServer(o -> o.jwt(...))`; authentication factor authority'leri (`FACTOR_PASSWORD`, `FACTOR_BEARER`).
+- Hibernate 7: Session'da `save` / `update` yok; UUID v7 için `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)`.
+- Test: `@MockitoBean`; `@SpringBootTest` + MockMvc için `@AutoConfigureMockMvc`; Testcontainers 2'de `testcontainers-postgresql`.
 
 Davranışın sürüme bağlı olduğu ve sonucun önemli olduğu durumda resmi dokümantasyonla doğrula.
 
 ---
 
-## Test zamanlaması
+## Test politikası
 
-Proje kararı: otomatik testler **Phase 4**'te risk bazlı eklenir. Phase 0–3'te Onat istemedikçe test suite oluşturma.
-
-Tek istisna (spec §15): son OWNER invariant'ı ve refresh token rotation/reuse detection, uygulandıkları task'ta birer concurrency testiyle doğrulanır, çünkü yarış durumları elle üretilemez. Bu istisnayı başka koda genişletme. Bunun yerine her uygulamadan sonra mümkün olanı doğrula: derleme, uygulamanın açılması, migration'ların çalışması, endpoint'in elle denenmesi.
+- Genel test suite'i Phase 4'te risk bazlı kurulur (spec §15).
+- İstisnalar (ilgili PR'da yazılır): concurrency'ye dayanan invariant'lar (son OWNER, refresh rotation) ve
+  Redis / Kafka entegrasyonları (Testcontainers ile gerçek altyapıya karşı).
+- Diğer PR'larda doğrulama: derleme + uygulamanın açılması + elle deneme; sonuçlar PR açıklamasında.
 
 ---
 
 ## Çalıştırma
 
 ```bash
-docker compose up -d        # local PostgreSQL
+docker compose up -d        # local PostgreSQL (+ ilgili PR'lardan sonra Redis, Kafka)
 ./mvnw spring-boot:run
 ./mvnw clean verify
 ```
 
-Repo'daki gerçek kuruluma göre uyarla.
-
----
-
-## STATUS.md
-
-Repo'yu değiştiren tutarlı bir task bittiğinde `STATUS.md`'yi güncelle: aktif task, biten task'lar, uygulanan migration'lar, teknik borçlar, öğrenme odağı. Yalnız chat'te açıklama ya da review yaptıysan dokunma.
-
-Task boyutu: tek bir tutarlı dikey dilim (örneğin `DT-014 Create Todo`: migration + entity + repository + service + controller). "Todo modülünü yap" gibi bir task çok büyüktür.
+Not: 5432 başka bir container tarafından kullanılıyorsa deeptodo-postgres başlamaz; STATUS'taki ortam notuna bak.
 
 ---
 
 ## Cevap biçimi
 
-Türkçe; Java/Spring/SQL terimleri İngilizce. Orta uzunlukta ve yoğun. 1–2 kaliteli kod örneği; gereksiz alternatif listesi yok, en iyi pratik varsayılanı seç, gerçek bir trade-off varsa söyle. Framework'ü sihir gibi anlatma; gerektiğinde runtime davranışını görünür kıl. Onat'ın sorusunu tam bir kurs dersine dönüştürme.
+Türkçe; Java/Spring/SQL terimleri İngilizce. Her adımın sonunda "Chat anlatımı" yapısı. Onat bir şeyin nedenini
+sorduğunda: kısa cevap → runtime'da ne olduğu → koddaki yeri; framework'ü sihir gibi anlatma. Bir mesajda tek konu.
