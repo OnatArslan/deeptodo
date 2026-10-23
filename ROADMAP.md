@@ -14,7 +14,7 @@ Adım bitince `[x]` ve PR numarası yazılır. Sıra değişikliği Onat'ın kar
 Bugün commit edilmemiş duran auth tamamlama ve workspace işi, okunabilir PR'lara bölünerek `develop`'a alınır.
 
 - [x] **A1** Ortam: deeptodo-postgres'in host portunu çakışmayan bir porta taşı (5432'de başka proje var) — `compose.yaml` + `DB_URL` varsayılanı (#2)
-- [ ] **A2** Hata sözleşmesi: `common/error` (404 / 403 / 409) + `SecurityProblemHandler` (filter zinciri 401 / 403 ProblemDetail) + validation ProblemDetail
+- [x] **A2** Hata sözleşmesi: `common/error` (404 / 403 / 409) + `SecurityProblemHandler` (filter zinciri 401 / 403 ProblemDetail) + validation ProblemDetail (#3)
 - [ ] **A3** Hesap yönetimi: `CurrentUser`, `PATCH/DELETE /api/users/me`, hesap kapatınca bütün refresh token'ların revoke'u
 - [ ] **A4** Login rate limit (in-memory, email + IP, 429 + `Retry-After`)
 - [ ] **A5** Workspace domain: V4 `workspace_members`, entity'ler, create (workspace + ilk OWNER aynı tx), listMine, get

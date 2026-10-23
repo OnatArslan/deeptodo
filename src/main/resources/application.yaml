@@ -14,6 +14,11 @@ spring:
       ddl-auto: validate
     open-in-view: false
 
+  mvc:
+    # Validation (400), 405 gibi Spring MVC hataları da ProblemDetail formatında dönsün.
+    problemdetails:
+      enabled: true
+
 deeptodo:
   security:
     jwt:

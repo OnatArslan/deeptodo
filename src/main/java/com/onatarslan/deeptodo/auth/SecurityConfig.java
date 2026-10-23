@@ -1,5 +1,6 @@
 package com.onatarslan.deeptodo.auth;
 
+import com.onatarslan.deeptodo.auth.web.SecurityProblemHandler;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,7 +22,9 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                           JwtAuthenticationConverter jwtAuthenticationConverter,
+                                           SecurityProblemHandler securityProblemHandler) throws Exception {
         http
                 // Sunucu kimseyi hafızasında tutmayacak (1. mesajdaki "stateless").
                 // Her istek kimliğini kendisi getirmek zorunda.
@@ -39,9 +42,17 @@ public class SecurityConfig {
                         // Geri kalan her şey kimlik istiyor. Bu satır en sonda durmalı.
                         .anyRequest().authenticated()
                 )
+                // Filter zincirindeki 401 (kimlik yok/geçersiz) ve 403 (erişim reddedildi) cevapları ProblemDetail olsun.
+                // Bu hatalar controller'a ulaşmadığı için @RestControllerAdvice onları yakalayamaz.
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(securityProblemHandler)
+                        .accessDeniedHandler(securityProblemHandler))
                 // YENİ: kimliği bulan filter artık Bearer token okuyor.
                 // jwt(...) context'teki JwtDecoder bean'ini otomatik buluyor.
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .authenticationEntryPoint(securityProblemHandler)
+                        .accessDeniedHandler(securityProblemHandler)
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
         return http.build();
     }
 

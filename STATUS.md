@@ -49,6 +49,13 @@ Next: hesap kapatma (`DELETE /api/users/me` + kullanıcının bütün aileleri r
 
 ## Completed tasks
 
+### A2 — Hata sözleşmesi ✅ (2026-10-23)
+
+- Filter zinciri 401 / 403 → `auth/web/SecurityProblemHandler` (`application/problem+json`; `WWW-Authenticate` header'ı Spring'in Bearer entry point'i yazmaya devam eder)
+- Uygulama hataları → `common/error/GlobalExceptionHandler`: `ResourceNotFoundException` 404, `ForbiddenOperationException` 403, `BusinessRuleViolationException` 409 (exception'lar HTTP bilmez, spec §13). İlk kullanıcıları A3 / A5'te gelir
+- `spring.mvc.problemdetails.enabled: true`: validation 400, bozuk JSON 400, 405 de ProblemDetail
+- Manual smoke ✅: token yok / bozuk token → 401 problem+json + WWW-Authenticate; boş alanlarla register → 400 problem+json; bozuk JSON → 400; `DELETE /api/auth/login` → 405; geçerli token → 200
+
 ### DT-001 — Bootstrap baseline ✅ (2026-10-01)
 
 - `compose.yaml`: PostgreSQL `17.6`, named volume `postgres-data`, `pg_isready` healthcheck
@@ -98,6 +105,7 @@ user/web          UserController (GET /api/users/me), dto/MeResponse
 | TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
 | TD-4 | Login rate limit (spec §10) henüz yok; `ProviderManager`'a event publisher bağlı değil | Phase 3 |
 | TD-8 | Rotation / reuse için concurrency testi (spec §15 istisnası) yazılmadı — Onat kararıyla ertelendi; Testcontainers gerekecek | Phase 4 başı |
+| TD-12 | Validation 400 cevabı hangi alanın hatalı olduğunu söylemiyor (`detail: Invalid request content.`); beklenmeyen 500'ler hâlâ Boot'un `/error` JSON'u (ProblemDetail değil) | Phase 4 (E2 ile) |
 | TD-9 | `REFRESH_COOKIE_SECURE` production'da true verilmeli | Phase 4 deploy |
 
 ## Current learning focus
