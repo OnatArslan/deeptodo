@@ -1,15 +1,17 @@
 # CLAUDE.md — DeepToDo
 
 DeepToDo, workspace tabanlı collaborative task management backend'i (Java 21, Spring Boot 4.1).
-Proje **agentic** geliştirilir: kodu Claude yazar, Onat yönlendirir, review eder ve merge eder.
+Proje **agentic** geliştirilir: `ROADMAP.md`'deki adımları Claude uygular (kod, doğrulama, PR, merge).
 
-Normal agentic projelerden tek farkı: büyük ve kapsamlı PR'lar yerine **küçük, öğretici PR'lar**.
-Her PR hem projeyi bir adım ilerletir hem de Onat'a tek bir kavramı öğretir. Onat'ın her PR'ı
-okuyup anlayabilmesi, PR'ın çalışması kadar önemlidir.
+Normal agentic projelerden tek farkı: büyük ve kapsamlı PR'lar yerine **her prompt'ta tek bir küçük adım**
+ve o adımın **chat'te anlatılması**. Onat kodu okur, "bu neden böyle?" diye sorar; Claude anlatır.
+Onat'ın her adımı anlayabilmesi, adımın çalışması kadar önemlidir.
 
-Güncel durum (her oturumda yüklenir):
+Güncel durum ve yol haritası (her oturumda yüklenir):
 
 @STATUS.md
+
+@ROADMAP.md
 
 Hedef mimari ve kapsam `PROJECT_SPEC.md`'de (uzun). Bütününü okuma; işle ilgili bölümü oku.
 Doküman ile kod çelişirse sessizce düzeltme; çelişkiyi açıkça söyle.
@@ -18,10 +20,14 @@ Doküman ile kod çelişirse sessizce düzeltme; çelişkiyi açıkça söyle.
 
 ## Roller
 
-**Claude — geliştirici.** Task'ı planlar, kodu ve migration'ı yazar, doğrular, PR açar, PR açıklamasında öğretir.
+**Claude — geliştirici ve anlatıcı.** Roadmap'teki sıradaki adımı planlar, kodu ve migration'ı yazar,
+doğrular, PR açar, `develop`'a **merge eder** ve chat'te ne yaptığını ve nedenini anlatır.
 
-**Onat — product owner, reviewer, öğrenen.** Sıradaki işi seçer, PR'ı okur, soru sorar, merge eder.
-Kapsam ve mimari kararlar Onat'ındır.
+**Onat — product owner, okuyucu, öğrenen.** Prompt ile ilerletir ("devam" ya da belirli bir adım),
+kodu okur, soru sorar. Kapsam ve mimari kararlar Onat'ındır.
+
+**Onay gerektirenler (Onat'a tek satır sor, bekle):** `develop` → `main` release, production deploy / production'a
+dokunan her işlem, uygulanmış (merge edilmiş) bir migration'ı değiştirmek, kapsam değişikliği.
 
 ---
 
@@ -35,12 +41,12 @@ develop   ← bütün PR'ların hedefi
 feat/<kısa-ad>, fix/<kısa-ad>, docs/<kısa-ad>, chore/<kısa-ad>   ← her task için bir branch, develop'tan açılır
 ```
 
-### Bir PR = tek kavram, tek dikey dilim
+### Bir prompt = bir roadmap adımı = bir PR
 
 - Bir PR, Onat'ın tek oturuşta okuyup anlayabileceği büyüklüktedir: **yaklaşık 300 satır değişiklik ve 10 dosyayı geçmez**
   (migration ve test dahil). Geçecekse işi böl ve önce bölme planını göster.
 - Bir PR tek bir şey öğretir. "Rate limiter + token denylist + refresh refactor" üç PR'dır.
-- **Aynı anda tek açık PR.** Sıradaki PR, öncekisi merge edildikten sonra açılır; Onat her adımı sindirerek ilerler.
+- Adım bitince PR merge edilir (squash); bir sonraki prompt bir sonraki adımı açar. Aynı anda tek açık PR olur.
 - Kendiliğinden ilgisiz refactor, yeni dependency ya da kapsam dışı iş ekleme. Gerekli görürsen PR açıklamasında
   "Sonraki adım önerisi" olarak yaz; karar Onat'ın.
 
@@ -58,7 +64,7 @@ feat/<kısa-ad>, fix/<kısa-ad>, docs/<kısa-ad>, chore/<kısa-ad>   ← her tas
   başarısız olan bir şey varsa açıkça söylenir.
 - `STATUS.md` güncellemesi (biten iş, yeni migration, teknik borç).
 
-### PR açıklaması şablonu (Türkçe)
+### PR açıklaması şablonu (Türkçe; kalıcı kayıt — chat anlatımının özeti)
 
 ```markdown
 ## Ne
@@ -87,9 +93,20 @@ Seçilmeyen alternatifler ve nedeni; kapsam dışı bırakılanlar.
 
 ### Merge ve sonrası
 
-- Claude PR'ı **merge etmez**; merge Onat'ındır.
-- PR açıldıktan sonra chat'te kısa özet + PR linki ver; detaylı anlatım PR açıklamasında olsun.
-- Onat PR üzerinde soru sorarsa cevabı chat'te ver; gerekirse PR'a commit ekle.
+- Doğrulama geçtiyse Claude PR'ı `develop`'a **squash merge** eder ve branch'i siler. Doğrulama geçmediyse merge etmez, sorunu söyler.
+- `ROADMAP.md`'de adımı işaretler, `STATUS.md`'yi günceller (aynı PR içinde).
+- Onat sonradan bir değişiklik isterse yeni küçük bir PR açılır; merge edilmiş geçmiş yeniden yazılmaz.
+
+### Chat anlatımı (her adımın sonunda)
+
+Kısa bir rapor değil, öğretici bir anlatım; ama tek adım, tek konu:
+
+1. **Ne yaptım** — 2–3 cümle + PR linki.
+2. **Nasıl çalışıyor** — runtime'da ne oluyor: hangi istek, hangi sınıf, hangi sırayla. Gerekirse küçük text diyagram.
+3. **Neden böyle** — önemli kararlar ve seçilmeyen alternatifler (her biri bir iki cümle).
+4. **Okuma rehberi** — Onat'ın hangi dosyayı hangi sırayla okuması gerektiği (`dosya:satır` linkleri).
+5. **Kendin dene** — 1–3 komut ve beklenen sonuç.
+6. **Sıradaki adım** — roadmap'teki bir sonraki adımın tek satırlık özeti.
 
 ### Commit
 
@@ -196,5 +213,5 @@ Not: 5432 başka bir container tarafından kullanılıyorsa deeptodo-postgres ba
 
 ## Cevap biçimi
 
-Türkçe; Java/Spring/SQL terimleri İngilizce. Chat'te kısa ve öz: yapılan iş, PR linki, varsa karar sorusu.
-Öğretici anlatım PR açıklamasına aittir. Bir mesajda tek konu.
+Türkçe; Java/Spring/SQL terimleri İngilizce. Her adımın sonunda "Chat anlatımı" yapısı. Onat bir şeyin nedenini
+sorduğunda: kısa cevap → runtime'da ne olduğu → koddaki yeri; framework'ü sihir gibi anlatma. Bir mesajda tek konu.
