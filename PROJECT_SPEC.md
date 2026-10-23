@@ -1,4 +1,4 @@
-# DeepToDo — Project Specification v2
+# DeepToDo — Project Specification v3
 
 ## 1. Proje amacı
 
@@ -18,6 +18,9 @@ Bu projenin birinci amacı çalışan bir CRUD API üretmek değil; aynı codeba
 - backend testing
 - logging / health / metrics
 - Docker build ve public deployment
+- Redis (paylaşılan state, TTL'li veri) ve Kafka (domain event'leri, transactional outbox) — §2.1 öğrenme modülleri
+
+Proje agentic geliştirilir: kodu Claude küçük, öğretici PR'larla yazar; Onat yönlendirir, review eder ve merge eder (bkz. `CLAUDE.md`).
 
 Proje **scope kontrollü** tutulur. Kursta öğrenilen her teknolojiyi DeepToDo'ya eklemek hedef değildir.
 
@@ -64,8 +67,6 @@ Ana ilke:
 - email verification
 - forgot-password
 - MFA
-- Redis
-- Kafka / message broker
 - microservices
 - CQRS / event sourcing
 - WebSocket / SSE
@@ -81,6 +82,27 @@ Ana ilke:
 
 Bu liste ancak gerçek ürün/öğrenme ihtiyacı oluşursa bilinçli karar ile değiştirilir.
 
+### 2.1 Öğrenme modülleri — Redis ve Kafka (karar 2026-10-23)
+
+Redis ve Kafka, uygulama tek instance çalıştığı sürece **zorunlu değildir**; öğrenme amacıyla, kodda zaten var olan
+somut bir problemi çözen yerlere eklenir. Her use-case ayrı, küçük bir PR'dır. Listede olmayan bir yere eklenmez.
+
+Redis:
+- **Paylaşılan login rate limit:** in-memory `LoginRateLimiter` yerine Redis sayaçları (`INCR` + `EXPIRE`); birden çok instance aynı sayacı görür.
+- **Access token denylist:** logout ve hesap kapatmada token'ın `jti`'si, kalan ömrü kadar TTL ile Redis'e yazılır; JWT doğrulaması bu listeye de bakar. Kapatılan hesabın access token'ının 15 dk daha geçerli kalması sorununu kapatır.
+- **(Opsiyonel) Üyelik cache'i:** `requireMember` sonucunun cache'lenmesi ve rol/üyelik değişince invalidation. Yetki verisini cache'lemenin riskleri (bayat yetki) bu use-case'in öğrenme konusudur.
+
+Kafka:
+- **Transactional outbox:** domain event'leri iş verisiyle aynı transaction'da `outbox_events` tablosuna yazılır; ayrı bir relay bunları Kafka'ya yayınlar (dual-write problemi yok).
+- **`UserDeactivated` event'i:** `auth` modülü dinler ve kullanıcının refresh token'larını revoke eder (`user` → `auth` doğrudan bağımlılığı kalkar).
+- **`WorkspaceMemberRemoved` event'i:** TodoAssignee geldiğinde, çıkarılan üyenin atamalarını temizler.
+- Consumer'lar idempotent'tir (at-least-once teslimat varsayımı).
+
+Sınırlar:
+- Uygulama yine tek deployable modular monolith'tir; Kafka modüller arası iletişim içindir, microservice'e bölünme yoktur.
+- Kafka KRaft modunda tek broker (ZooKeeper yok). Redis tek node.
+- Phase 4 deploy'da Redis ve Kafka'nın maliyeti (RAM) ayrıca değerlendirilir; gerekirse production'da kapatılabilir olmalıdır (feature flag / profile).
+
 ## 3. Teknoloji baseline
 
 - Java 21+
@@ -95,6 +117,7 @@ Bu liste ancak gerçek ürün/öğrenme ihtiyacı oluşursa bilinçli karar ile 
 - Micrometer basics
 - Docker / Docker Compose
 - Testing phase'inde JUnit, Mockito, MockMvc ve PostgreSQL Testcontainers
+- Öğrenme modülleri (§2.1): Redis (Spring Data Redis), Apache Kafka (Spring for Apache Kafka), Redis / Kafka Testcontainers
 
 Exact patch/library version implementation zamanında compatibility ve official documentation ile doğrulanır.
 
@@ -676,7 +699,7 @@ Authenticated user workspace oluşturduğunda Workspace + OWNER WorkspaceMember 
 - ACTIVE user requirement
 - brute-force koruması: login denemeleri rate limit ile sınırlanır
 
-Gerekçe: uygulama public HTTPS üzerinden internete açılır; sınırsız deneme kabul eden bir login endpoint'i parola tahmini saldırısına açıktır. Uygulama tek instance çalıştığı için rate limit state'i in-memory tutulur; Redis kapsam dışı kalır. Birden çok instance'a geçilirse bu karar yeniden açılır (in-memory sayaç instance'lar arasında paylaşılmaz).
+Gerekçe: uygulama public HTTPS üzerinden internete açılır; sınırsız deneme kabul eden bir login endpoint'i parola tahmini saldırısına açıktır. İlk uygulama in-memory'dir (tek instance). Redis öğrenme modülünde (§2.1) sayaçlar Redis'e taşınır; böylece birden çok instance aynı sayacı paylaşır.
 
 ### Access token
 - short-lived JWT
@@ -844,6 +867,8 @@ Soft-delete her tabloya mekanik uygulanmaz.
 ## 15. Testing policy
 
 Automated testing ana geliştirme fazlarının sonuna bırakılır.
+
+Concurrency'ye dayanan invariant'lar (aşağıdaki istisna) ve Redis / Kafka entegrasyonları, ilgili PR'da Testcontainers ile gerçek altyapıya karşı test edilir.
 
 Phase 0–3 boyunca:
 - code compile edilir
@@ -1023,6 +1048,11 @@ C. Docker/deploy:
 
 V1 public deploy ile kapanır.
 
+### Phase 5 — Redis / Kafka öğrenme modülleri
+
+§2.1'deki use-case'ler, her biri ayrı küçük PR olarak. Sıra ve Phase 1–4'e göre zamanlaması Onat'ın kararıdır ve STATUS'a yazılır.
+Önerilen sıra: Redis rate limit → access token denylist → outbox tablosu + relay → `UserDeactivated` → (Todo'dan sonra) `WorkspaceMemberRemoved`.
+
 ## 19. Task sizing
 
 Bir task tek coherent vertical slice olmalıdır.
@@ -1041,6 +1071,9 @@ Implement Todo module
 
 Mekanik küçük işler formal task olmak zorunda değildir.
 
+**Bir task = bir PR.** PR boyutu ve şablonu `CLAUDE.md`'dedir (yaklaşık 300 satır / 10 dosya sınırı, tek kavram).
+Bir dikey dilim bu sınırı aşıyorsa sıralı birkaç PR'a bölünür (ör. migration + entity → service → endpoint).
+
 ## 20. Definition of Done
 
 Bir feature tamamlandığında, mevcut phase izin verdiği ölçüde:
@@ -1057,7 +1090,7 @@ Bir feature tamamlandığında, mevcut phase izin verdiği ölçüde:
 
 ## 21. Scope-control rules
 
-- Redis/Kafka "production gibi dursun" diye eklenmez
+- Redis/Kafka yalnız §2.1'deki use-case'lerde kullanılır; "production gibi dursun" diye başka yere eklenmez
 - microservice'e bölünmez
 - generic framework yazılmaz
 - design pattern adı göstermek için pattern eklenmez
