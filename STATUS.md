@@ -57,6 +57,11 @@ Next: hesap kapatma (`DELETE /api/users/me` + kullanıcının bütün aileleri r
 - `src/main/resources/db/migration/` created
 - Manual smoke: app starts, Flyway creates `flyway_schema_history`, `/actuator/health` → `UP`
 
+## Local environment
+
+- PostgreSQL (compose) host'ta `127.0.0.1:5433` → container 5432. Host 5432 bu makinede başka bir projenin (`library-postgres`) Postgres'inde; A1 (2026-10-23) ile taşındı.
+- `DB_URL` varsayılanı `jdbc:postgresql://localhost:5433/deeptodo`.
+
 ## Applied migrations
 
 | Migration | Purpose |

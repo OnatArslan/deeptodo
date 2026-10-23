@@ -7,7 +7,9 @@ services:
       POSTGRES_USER: deeptodo
       POSTGRES_PASSWORD: deeptodo
     ports:
-      - "5432:5432"
+      # Host 5432 bu makinede başka bir projenin Postgres'inde; çakışmasın diye 5433.
+      # 127.0.0.1: DB yalnız bu makineden erişilebilir, ağdaki başka cihazlara açılmaz.
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
