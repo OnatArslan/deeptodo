@@ -108,6 +108,31 @@ Kısa bir rapor değil, öğretici bir anlatım; ama tek adım, tek konu:
 5. **Kendin dene** — 1–3 komut ve beklenen sonuç.
 6. **Sıradaki adım** — roadmap'teki bir sonraki adımın tek satırlık özeti.
 
+### Derin anlatım — Keycloak, Redis, Kafka (ROADMAP'te 🔬)
+
+Bu üç teknoloji projeye dışarıdan bir sistem olarak girer; "çalışıyor" yetmez, Onat onları işletebilecek ve hata
+ayıklayabilecek kadar anlamalıdır. Bu adımlarda chat anlatımı yukarıdaki altı bölümü korur ama **derinleşir**:
+
+1. **Problem ve alternatif** — Bu teknoloji hangi problemi çözüyor; kendimiz yazsaydık ne yazacaktık
+   (Keycloak için: kaldırdığımız register / login / refresh / rate limit kodumuz). Neyi kazandık, neyi kaybettik.
+2. **Kavram modeli** — Temel kavramlar ve birbirleriyle ilişkisi, kendi terimleriyle
+   (Keycloak: realm, client, user, role, session, scope, mapper; Redis: key, veri yapıları, TTL, tek thread modeli;
+   Kafka: topic, partition, offset, consumer group, delivery semantics).
+3. **Protokol / wire seviyesi** — Ağda gerçekte ne gidip geliyor. Keycloak: OIDC discovery, authorization code + PKCE,
+   token endpoint istek/cevabı, JWKS, decode edilmiş token'ın claim'leri tek tek. Redis: çalışan komutlar
+   (`redis-cli MONITOR` çıktısıyla). Kafka: kaydın key / value / header'ları, offset commit'i.
+4. **Runtime sırası** — Bir isteğin bizim kodumuzdan dış sisteme ve geri dönüşü; hangi sınıf, hangi ağ çağrısı,
+   hangi sırayla. Sequence diyagramı (text).
+5. **Hata modları** — Dış sistem çökerse, yavaşlarsa, ağ koparsa, mesaj iki kez gelirse ne olur; kodumuz nasıl davranır.
+   Mümkünse **denenerek gösterilir** (container durdurulur, sonuç gösterilir).
+6. **Konfigürasyon** — Eklenen her ayarın ne yaptığı; local ile production arasında neden farklı olduğu.
+7. **Kendin gözlemle** — Onat'ın kendi bakabileceği araçlar ve komutlar (Keycloak admin console / `kcadm.sh`,
+   token decode, `redis-cli`, `kafka-console-consumer`, ilgili log satırları).
+8. **Kontrol soruları** — 3–5 soru.
+
+Anlatım uzunsa birkaç mesaja bölünebilir; "bir mesajda tek konu" kuralı adımın alt konuları için esner.
+PR açıklamasındaki "Öğrenme notu" da bu adımlarda aynı derinliğin özetini taşır.
+
 ### Commit
 
 - Açıklayıcı, İngilizce, emir kipinde başlık ("Add Redis-backed login rate limiter").
@@ -121,7 +146,10 @@ Kısa bir rapor değil, öğretici bir anlatım; ama tek adım, tek konu:
 `PROJECT_SPEC.md` bağlayıcıdır. Kapsam değişikliği normal bir refactor gibi yapılmaz: önce etkisini açıkla, karar Onat'ın.
 `STATUS.md`'deki "Locked scope decisions" uygulama sırasında yeniden açılmaz.
 
-Redis ve Kafka yalnız spec §2'deki **öğrenme modülleri** use-case'leri için kullanılır; "production gibi dursun" diye
+Kimlik yönetimi Keycloak'tadır (spec §10): kullanıcı kaydı, login, token üretimi, refresh, brute force koruması
+uygulamada yazılmaz; uygulama yalnız Resource Server'dır.
+
+Redis ve Kafka yalnız spec §2.1'deki **öğrenme modülleri** use-case'leri için kullanılır; "production gibi dursun" diye
 başka yere eklenmez. Microservice, CQRS, event sourcing, generic BaseService/BaseRepository, AuditLog tablosu ve
 Kubernetes hâlâ kapsam dışıdır.
 
@@ -159,7 +187,12 @@ Todo → hard delete     Tag → hard delete       Membership → hard delete
 ```
 
 **Security**
-- Spring Security Resource Server'ın yerleşik JWT doğrulaması; özel JWT filtresi yazma.
+- Token'ları Keycloak üretir; uygulama Spring Security Resource Server'ın yerleşik JWT doğrulamasını kullanır
+  (`issuer-uri`, JWKS, audience). Özel JWT filtresi, kendi login / token / refresh kodu yazma.
+- Kullanıcının kimliği token'daki `sub`'dır; yerel `users` satırına `auth_subject` ile eşlenir. Domain kodu Keycloak id'sini
+  değil yerel user id'yi kullanır.
+- Keycloak Admin API çağrısı dış ağ çağrısıdır: DB transaction'ının içinde yapılmaz.
+- Realm yapılandırması elle tıklanıp bırakılmaz; export dosyası repoda versiyonlanır.
 - Yetki rol değil veridir: aktif üyelik, workspace kapsamı, sahiplik. Kurallar service'te, sorgu seviyesinde
   (`resource id + workspace id`). Dinamik yetki bilgisi JWT'ye yazılmaz.
 - Filter zincirindeki hatalar `SecurityProblemHandler`, uygulama hataları `GlobalExceptionHandler` üzerinden ProblemDetail döner.
@@ -193,7 +226,7 @@ Davranışın sürüme bağlı olduğu ve sonucun önemli olduğu durumda resmi 
 ## Test politikası
 
 - Genel test suite'i Phase 4'te risk bazlı kurulur (spec §15).
-- İstisnalar (ilgili PR'da yazılır): concurrency'ye dayanan invariant'lar (son OWNER, refresh rotation) ve
+- İstisnalar (ilgili PR'da yazılır): concurrency'ye dayanan invariant'lar (son OWNER) ve
   Redis / Kafka entegrasyonları (Testcontainers ile gerçek altyapıya karşı).
 - Diğer PR'larda doğrulama: derleme + uygulamanın açılması + elle deneme; sonuçlar PR açıklamasında.
 
@@ -202,7 +235,7 @@ Davranışın sürüme bağlı olduğu ve sonucun önemli olduğu durumda resmi 
 ## Çalıştırma
 
 ```bash
-docker compose up -d        # local PostgreSQL (+ ilgili PR'lardan sonra Redis, Kafka)
+docker compose up -d        # local PostgreSQL (+ K1'den sonra Keycloak, G adımlarından sonra Redis, Kafka)
 ./mvnw spring-boot:run
 ./mvnw clean verify
 ```
@@ -215,3 +248,4 @@ Local PostgreSQL host'ta `localhost:5433`'te (5432 bu makinede başka bir projed
 
 Türkçe; Java/Spring/SQL terimleri İngilizce. Her adımın sonunda "Chat anlatımı" yapısı. Onat bir şeyin nedenini
 sorduğunda: kısa cevap → runtime'da ne olduğu → koddaki yeri; framework'ü sihir gibi anlatma. Bir mesajda tek konu.
+Keycloak / Redis / Kafka adımlarında "Derin anlatım" bölümü geçerlidir.

@@ -6,36 +6,21 @@
 
 ## Last updated
 
-2026-10-15
+2026-10-24
 
 ## Current phase
 
-**Phase 3 (öne alındı) — Authentication**
+**Keycloak'a geçiş (ROADMAP A4 → K1–K5)**
 
-Karar (2026-10-10): Phase 3'ün authentication kısmı Phase 1'den önce yapılıyor (bkz. spec §18 sıra kararı). DT-002'nin `users` kısmı bu akışa dahil edildi; `workspaces` entity'si Phase 1/2'de.
+Karar (2026-10-24): kimlik yönetimi Keycloak'a devredildi (spec v4 §10). Uygulamada yazılmış register / login / JWT üretimi / refresh token / rate limit kodu A4'te kaldırılır; uygulama yalnız OAuth2 Resource Server olur.
 
 ## Active task
 
-### DT-003 — Register + login + JWT + refresh token
+_None._ Sıradaki: **A4** — kendi authentication kodunu kaldır.
 
-Status: `IN PROGRESS`
+Not: DT-003'te yazılan ve elle doğrulanan refresh token akışı (opaque token, SHA-256 hash, rotation, katı reuse detection) git geçmişinde duruyor (`679ece5`). K5'te Keycloak'ın aynı işi nasıl yaptığıyla karşılaştırılacak.
 
-Done:
-- Access token: RS256 JWT (`TokenService`), `NimbusJwtDecoder` + timestamp/issuer validator, `oauth2ResourceServer(jwt)`, `authorities` claim → authorities (prefix yok); `BearerTokenResolver` `/api/auth/**`'da token okumaz; `/actuator/health` permitAll
-- Refresh token (2026-10-15, refactor aynı gün):
-  - V3 `refresh_tokens` (spec §7.9; `replaced_by_token_id` yok — katı reuse için `used_at` + `family_id` yeterli; push'lanmış V3 Onat kararıyla yerinde düzenlendi + DB reset)
-  - `auth/refresh`: `RefreshToken` (scalar `userId`; `isUsed` / `isRevoked` / `isExpired`), `RefreshTokenRepository` (koşullu `markUsed`, `revokeFamily`), `RefreshTokenService` (`issue` / `rotate` / `revokeFamilyOf`), `RotationResult` (sealed: `Rotated` | `Rejected(reason)`)
-  - `auth/jwt`: `AccessTokenService` yalnız JWT üretir; `Clock` `common/config/ClockConfig`'te; properties `@ConfigurationPropertiesScan` ile
-  - Rotation sırası: bul → revoke/used(reuse→aile revoke)/expired → kullanıcı ACTIVE mi (değilse aile revoke) → koşullu `markUsed` (0 → reuse) → aynı aileden yeni token. Reddetme sonuç olarak döner, revoke normal commit edilir; exception `AuthService`'te transaction dışında (`noRollbackFor` yok)
-  - Opaque 256-bit token, DB'de yalnız SHA-256 hex; TTL 14 gün
-  - Cookie: `refresh_token`, HttpOnly, SameSite=Strict, Path=/api/auth, Secure `REFRESH_COOKIE_SECURE` ile (local false)
-  - `POST /api/auth/register` 201 → id + access token + refresh cookie (karar: register otomatik login)
-  - `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout` (204, idempotent)
-  - Karar: **katı reuse detection**, grace window yok (spec §10); CSRF kapalı, cookie'li endpoint'ler SameSite=Strict + Path ile korunuyor
-
-Manual smoke ✅ (2026-10-15, refactor sonrası tekrar): register 201 + cookie; login 200; refresh 200 ve cookie döner; 3 ardışık refresh zinciri 200; eski token tekrar → 401 + aile revoke + cookie silinir; revoke sonrası halef → 401; cookie'siz refresh 401; logout 204 sonrası refresh 401; aynı token'la 3 eşzamanlı refresh → 1×200, 2×401, aile revoke (katı reuse'un beklenen sonucu); DEACTIVATED → 401 (token tüketilmeden aile revoke).
-
-Next: hesap kapatma (`DELETE /api/users/me` + kullanıcının bütün aileleri revoke), login rate limit, `CurrentUser` yardımcısı.
+Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspace + membership + yetki kuralları, V4 `workspace_members`. ROADMAP K4 / W1 / W2'de Keycloak'a uyarlanarak yerleşir.
 
 ## Phase status
 
@@ -44,7 +29,7 @@ Next: hesap kapatma (`DELETE /api/users/me` + kullanıcının bütün aileleri r
 | Phase 0 — Bootstrap | ✅ Done |
 | Phase 1 — Todo Core | ⏸ Paused (users schema done, workspace entity pending) |
 | Phase 2 — Workspace / Collaboration / Querying | ⬜ |
-| Phase 3 — Security | 🔄 In progress (authentication first) |
+| Phase 3 — Security | 🔄 Keycloak'a geçiş (kendi auth kodu kaldırılıyor) |
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
@@ -103,16 +88,15 @@ user/web          UserController (GET /api/users/me), dto/MeResponse
 | ID | Debt | Planned phase |
 |---|---|---|
 | TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
-| TD-4 | Login rate limit (spec §10) henüz yok; `ProviderManager`'a event publisher bağlı değil | Phase 3 |
-| TD-8 | Rotation / reuse için concurrency testi (spec §15 istisnası) yazılmadı — Onat kararıyla ertelendi; Testcontainers gerekecek | Phase 4 başı |
 | TD-12 | Validation 400 cevabı hangi alanın hatalı olduğunu söylemiyor (`detail: Invalid request content.`); beklenmeyen 500'ler hâlâ Boot'un `/error` JSON'u (ProblemDetail değil) | Phase 4 (E2 ile) |
-| TD-9 | `REFRESH_COOKIE_SECURE` production'da true verilmeli | Phase 4 deploy |
+
+Keycloak kararıyla kapanan borçlar: TD-4 (login rate limit → Keycloak brute force detection), TD-8'in refresh rotation kısmı (son OWNER testi W3'te), TD-9 (refresh cookie Secure → cookie kalmadı), TD-10 (rate limit IP / forward headers → E4'te genel olarak ele alınır).
 
 ## Current learning focus
 
-- Spring Security 7: filter chain, `AuthenticationManager` / `DaoAuthenticationProvider` akışı
-- Password hashing: `DelegatingPasswordEncoder`, hash upgrade
-- Error contract: `ProblemDetail`, authentication hatalarında bilgi sızdırmama
+- OAuth2 / OIDC: authorization code + PKCE, token anatomisi, discovery, JWKS
+- Keycloak: realm / client / user modeli, realm export, Admin API
+- Resource Server: issuer / audience doğrulaması, `sub` → yerel kullanıcı eşleme
 
 ## Locked scope decisions
 
@@ -129,5 +113,6 @@ Do not casually reopen these during implementation:
 - register does not auto-create Workspace
 - tests mainly Phase 4
 - no AuditLog in v1
-- no Redis/Kafka/microservices
+- identity in Keycloak (no own password / token / refresh code)
+- Redis / Kafka only for spec §2.1 learning modules; no microservices
 - final v1 includes Docker + public HTTPS deployment
