@@ -16,7 +16,7 @@ Adım bitince `[x]` ve PR numarası yazılır. Sıra değişikliği Onat'ın kar
 - [x] **A1** Ortam: deeptodo-postgres'in host portunu çakışmayan bir porta taşı (5432'de başka proje var) — `compose.yaml` + `DB_URL` varsayılanı (#2)
 - [x] **A2** Hata sözleşmesi: `common/error` (404 / 403 / 409) + `SecurityProblemHandler` (filter zinciri 401 / 403 ProblemDetail) + validation ProblemDetail (#3)
 - [x] **A3** Keycloak geçiş planı: ROADMAP, spec v4, derin anlatım kuralı (#4)
-- [ ] **A4** Kendi yazdığımız authentication kodunu kaldır: register / login / JWT üretimi / refresh token / rate limit; resource server Keycloak issuer'ına bakar hale gelir
+- [x] **A4** Kendi yazdığımız authentication kodunu kaldır: register / login / JWT üretimi / refresh token / rate limit; resource server Keycloak issuer'ına bakar hale gelir (#5)
 
 ## K — Keycloak (kimlik sağlayıcı) 🔬
 

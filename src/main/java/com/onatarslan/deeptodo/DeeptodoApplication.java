@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
-// ConfigurationPropertiesScan: JwtProperties, RefreshTokenProperties gibi @ConfigurationProperties record'larını bulur.
+// ConfigurationPropertiesScan: @ConfigurationProperties record'larını ayrıca @EnableConfigurationProperties yazmadan bulur.
 @SpringBootApplication
 @ConfigurationPropertiesScan
 public class DeeptodoApplication {

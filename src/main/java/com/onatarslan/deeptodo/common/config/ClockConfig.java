@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
 
-// Zamana göre karar veren kod (token expiry, cookie Max-Age) "şimdi"yi buradan alır;
+// Zamana göre karar veren ya da zaman yazan kod (ör. üyelik joined_at) "şimdi"yi buradan alır;
 // testte sabit bir Clock verilerek bu kararlar deterministik hale gelir.
 @Configuration(proxyBeanMethods = false)
 public class ClockConfig {
