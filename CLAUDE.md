@@ -241,6 +241,8 @@ docker compose up -d        # local PostgreSQL (+ K1'den sonra Keycloak, G adım
 ```
 
 Local PostgreSQL host'ta `localhost:5433`'te (5432 bu makinede başka bir projede). `DB_URL` varsayılanı buna göre.
+Keycloak `http://localhost:8180` (admin console: `admin` / `admin`, yalnız local); realm `deeptodo`, test kullanıcıları ve
+token alma komutu `STATUS.md` → "Local environment".
 
 ---
 
