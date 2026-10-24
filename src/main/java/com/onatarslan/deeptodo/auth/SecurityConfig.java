@@ -35,7 +35,7 @@ public class SecurityConfig {
                 )
                 // Filter zincirindeki 401 (kimlik yok/geçersiz) ve 403 (erişim reddedildi) cevapları ProblemDetail olsun.
                 // Bu hatalar controller'a ulaşmadığı için @RestControllerAdvice onları yakalayamaz.
-                .exceptionHandling(e -> e
+                .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(securityProblemHandler)
                         .accessDeniedHandler(securityProblemHandler))
                 // JwtDecoder'ı Spring Boot, spring.security.oauth2.resourceserver.jwt.issuer-uri'den kurar.

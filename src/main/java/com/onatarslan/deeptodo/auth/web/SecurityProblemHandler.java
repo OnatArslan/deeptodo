@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
@@ -14,8 +15,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.net.URI;
 
 // Filter zincirinde oluşan 401 / 403 cevaplarını ProblemDetail formatında yazar.
 // Bu hatalar DispatcherServlet'e hiç ulaşmaz; @RestControllerAdvice onları göremez, bu yüzden burada.
@@ -28,7 +28,7 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
     // Standart davranışı koruyoruz: WWW-Authenticate header'ı (RFC 6750) ve status kodunu bunlar yazar.
     // Biz yalnız gövdeyi ekliyoruz.
     private final BearerTokenAuthenticationEntryPoint bearerEntryPoint = new BearerTokenAuthenticationEntryPoint();
-    private final BearerTokenAccessDeniedHandler bearerAccessDenied = new BearerTokenAccessDeniedHandler();
+    private final BearerTokenAccessDeniedHandler bearerAccessDeniedHandler = new BearerTokenAccessDeniedHandler();
     private final JsonMapper jsonMapper;
 
     public SecurityProblemHandler(JsonMapper jsonMapper) {
@@ -45,21 +45,20 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
-        bearerAccessDenied.handle(request, response, accessDeniedException);
+        bearerAccessDeniedHandler.handle(request, response, accessDeniedException);
         writeProblem(request, response, HttpStatus.FORBIDDEN, "Access denied");
     }
 
+    // GlobalExceptionHandler ile aynı ProblemDetail tipi; fark yalnız kimin serialize ettiği.
+    // Orada metot ProblemDetail döner, DispatcherServlet'in message converter'ı JSON'a çevirir.
+    // Burada DispatcherServlet yok: status'u, Content-Type'ı ve gövdeyi ham response'a kendimiz yazıyoruz.
     private void writeProblem(HttpServletRequest request, HttpServletResponse response,
                               HttpStatus status, String detail) throws IOException {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("type", "about:blank");
-        body.put("title", status.getReasonPhrase());
-        body.put("status", status.value());
-        body.put("detail", detail);
-        body.put("instance", request.getRequestURI());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
+        problem.setInstance(URI.create(request.getRequestURI()));
 
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        jsonMapper.writeValue(response.getOutputStream(), body);
+        jsonMapper.writeValue(response.getOutputStream(), problem);
     }
 }
