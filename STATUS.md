@@ -16,9 +16,9 @@ Karar (2026-10-24): kimlik yönetimi Keycloak'a devredildi (spec v4 §10). Uygul
 
 ## Active task
 
-_None._ Sıradaki: **K1** — Keycloak'ı local'e kur.
+_None._ Sıradaki: **K2** — resource server'ı Keycloak'a bağla (audience doğrulaması, Keycloak'a ulaşılamama durumu).
 
-Ara durum (A4 sonrası, K3'e kadar): uygulama açılır, token'sız istek 401 döner; token'lı istekler Keycloak (K1) ve yerel kullanıcı eşlemesi (K3) gelene kadar çalışmaz. Keycloak kapalıyken token'lı istek **500** döner (`JwtDecoderInitializationException`) — K2'de ele alınır.
+Ara durum (K1 sonrası, K3'e kadar): Keycloak token'ı doğrulanıyor (geçerli token → istek controller'a ulaşır, bozuk imza → 401). `/api/users/me` 500 döner çünkü `sub` henüz yerel kullanıcıya eşlenmiyor (K3). Uygulama açıldıktan sonra Keycloak'a hiç ulaşamadıysa token'lı istek **500** (`JwtDecoderInitializationException`); key'leri bir kez aldıysa Keycloak kapalıyken de doğrulama sürer — K2'de ele alınır.
 
 Not: DT-003'te yazılan ve elle doğrulanan refresh token akışı (opaque token, SHA-256 hash, rotation, katı reuse detection) git geçmişinde duruyor (`679ece5`). K5'te Keycloak'ın aynı işi nasıl yaptığıyla karşılaştırılacak.
 
@@ -35,6 +35,15 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### K1 — Keycloak local kurulum ✅ (2026-10-24)
+
+- `compose.yaml`: `keycloak` servisi (`quay.io/keycloak/keycloak:26.8.1`, `start-dev --import-realm`, host `127.0.0.1:8180`, yönetim portu 9000'de health, bash `/dev/tcp` healthcheck, `depends_on: postgres healthy`)
+- Keycloak'ın verisi aynı PostgreSQL sunucusunda ayrı `keycloak` database'i / kullanıcısı: `docker/postgres-init/01-create-keycloak-db.sql` (yalnız boş volume'de çalışır)
+- `keycloak/realm-deeptodo.json`: realm `deeptodo` (self-registration açık, email = username, duplicate email yok), client'lar `deeptodo-web` (public, authorization code + PKCE S256) ve `deeptodo-dev` (public, password grant — yalnız local curl), test kullanıcıları alice / bob
+- Manual smoke ✅: realm import log'u; discovery (`issuer = http://localhost:8180/realms/deeptodo`); JWKS (RS256 imza key'i + RSA-OAEP şifreleme key'i); password grant ile token; token'sız istek 401, geçerli token 404 (olmayan endpoint, yani kimlik doğrulandı), imzası bozuk token 401 `invalid_token`
+- Hata modu ✅: uygulama Keycloak'ı hiç görmeden Keycloak kapanırsa token'lı istek 500; key'ler bir kez alındıktan sonra Keycloak kapanırsa doğrulama devam eder (404)
+- Not: access token'da `aud` claim'i yok → K2'de audience mapper + doğrulama
 
 ### Refactor — `SecurityProblemHandler` `ProblemDetail` kullanıyor ✅ (2026-10-24)
 
@@ -67,6 +76,12 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 
 - PostgreSQL (compose) host'ta `127.0.0.1:5433` → container 5432. Host 5432 bu makinede başka bir projenin (`library-postgres`) Postgres'inde; A1 (2026-10-23) ile taşındı.
 - `DB_URL` varsayılanı `jdbc:postgresql://localhost:5433/deeptodo`.
+- Keycloak `http://localhost:8180`, admin console `admin` / `admin` (yalnız local). Realm `deeptodo`, test kullanıcıları `alice@example.com` / `alice-local-pass`, `bob@example.com` / `bob-local-pass`.
+- Mevcut (K1'den önce oluşmuş) bir postgres volume'ünde Keycloak database'i bir kez elle açılır:
+  `docker exec -i deeptodo-postgres psql -U deeptodo -d postgres < docker/postgres-init/01-create-keycloak-db.sql`
+- curl ile token (yalnız local `deeptodo-dev` client'ı):
+  `curl -s -X POST localhost:8180/realms/deeptodo/protocol/openid-connect/token -d grant_type=password -d client_id=deeptodo-dev -d username=alice@example.com -d password=alice-local-pass`
+- Realm dosyası yalnız realm yokken import edilir; dosyayı değiştirdikten sonra uygulamak için Keycloak database'i sıfırlanır ya da realm admin console'dan silinir.
 
 ## Applied migrations
 
