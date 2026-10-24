@@ -16,9 +16,6 @@ public class User extends AuditableEntity {
     @Column(name = "display_name", nullable = false)
     private String displayName;
 
-    @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private UserStatus status;
@@ -28,29 +25,18 @@ public class User extends AuditableEntity {
 
     }
 
-    public User(String email, String passwordHash, String displayName) {
+    // Parola Keycloak'ta. users.password_hash kolonu (V1, NOT NULL) K3 migration'ında kaldırılır;
+    // o zamana kadar kullanıcı oluşturan bir akış yok.
+    public User(String email, String displayName) {
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("display name can not be null or blank");
         }
-        if (passwordHash == null || passwordHash.isBlank()) {
-            throw new IllegalArgumentException("password hash can not be null or blank");
-        }
         this.email = normalizeEmail(email);
-        this.passwordHash = passwordHash;
         this.displayName = displayName.strip();
         this.status = UserStatus.ACTIVE;
     }
 
-
-
-    public void changePasswordHash(String newPasswordHash) {
-        if (newPasswordHash == null || newPasswordHash.isBlank()) {
-            throw new IllegalArgumentException("password hash can not be null or blank");
-        }
-        this.passwordHash = newPasswordHash;
-    }
-
-    // Kaydederken ve ararken aynı kural kullanılmalı; aksi halde kayıtlı kullanıcı login olamaz.
+    // Kaydederken ve ararken aynı kural kullanılmalı; aksi halde aynı kişi iki farklı email ile görünür.
     // Locale.ROOT: Türkçe locale'de "I".toLowerCase() noktasız "ı" üretir.
     public static String normalizeEmail(String raw) {
         if (raw == null || raw.isBlank()) {
@@ -65,10 +51,6 @@ public class User extends AuditableEntity {
 
     public String getDisplayName() {
         return displayName;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
     }
 
     public UserStatus getStatus() {

@@ -16,7 +16,9 @@ Karar (2026-10-24): kimlik yönetimi Keycloak'a devredildi (spec v4 §10). Uygul
 
 ## Active task
 
-_None._ Sıradaki: **A4** — kendi authentication kodunu kaldır.
+_None._ Sıradaki: **K1** — Keycloak'ı local'e kur.
+
+Ara durum (A4 sonrası, K3'e kadar): uygulama açılır, token'sız istek 401 döner; token'lı istekler Keycloak (K1) ve yerel kullanıcı eşlemesi (K3) gelene kadar çalışmaz. Keycloak kapalıyken token'lı istek **500** döner (`JwtDecoderInitializationException`) — K2'de ele alınır.
 
 Not: DT-003'te yazılan ve elle doğrulanan refresh token akışı (opaque token, SHA-256 hash, rotation, katı reuse detection) git geçmişinde duruyor (`679ece5`). K5'te Keycloak'ın aynı işi nasıl yaptığıyla karşılaştırılacak.
 
@@ -33,6 +35,13 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### A4 — Kendi authentication kodunu kaldır ✅ (2026-10-24)
+
+- Silindi: `AuthService`, `AuthTokens`, `AppUserDetails(Service)`, `auth/jwt` (token üretimi, RSA key yükleme, decoder), `auth/refresh` (rotation, reuse), `AuthController` + DTO'lar, `AuthExceptionHandler`, `RefreshTokenCookies`, `EmailAlreadyExist` / `InvalidRefreshToken` exception'ları; `SecurityConfig`'ten `PasswordEncoder`, `AuthenticationManager`, `BearerTokenResolver`, özel `JwtAuthenticationConverter`
+- `application.yaml`: `deeptodo.security.*` (JWT key yolları, refresh cookie) yerine `spring.security.oauth2.resourceserver.jwt.issuer-uri` (`KEYCLOAK_ISSUER_URI`, varsayılan `http://localhost:8180/realms/deeptodo`)
+- `User`: `passwordHash` alanı çıktı; `users.password_hash` kolonu ve `refresh_tokens` tablosu K3 migration'ına kadar DB'de duruyor (uygulanmış migration değiştirilmez)
+- Manual smoke ✅: uygulama açılıyor, health UP; token yok → 401 problem+json; eski `/api/auth/login` → 401 (artık korumalı bir bilinmeyen URL); Keycloak kapalıyken token'lı istek → 500 (beklenen ara durum)
 
 ### A2 — Hata sözleşmesi ✅ (2026-10-23)
 
@@ -60,7 +69,7 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 |---|---|
 | V1 | `users` (incl. `password_hash varchar(255)`), `workspaces`; named PKs, no time defaults, `~ '\S'` blank checks |
 | V2 | `users.version` kolonu kaldırıldı (spec §21; `@Version` yalnız todos / workspace_members'ta) |
-| V3 | `refresh_tokens` (spec §7.9, halef bağlantısı yok) + `user_id`, `family_id` index'leri |
+| V3 | `refresh_tokens` (spec §7.9, halef bağlantısı yok) + `user_id`, `family_id` index'leri — Keycloak'a geçişle kullanılmıyor, K3'te drop |
 
 ## Current schema
 
@@ -73,14 +82,12 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 ```text
 common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
-auth/             AuthService (register/login/refresh/logout), AuthTokens, AppUserDetailsService, AppUserDetails, SecurityConfig
-auth/jwt          JwtConfig, JwtProperties, AccessTokenService
-auth/refresh      RefreshToken, RefreshTokenRepository, RefreshTokenProperties, RefreshTokenService, RotationResult
-auth/exception    EmailAlreadyExistException, InvalidRefreshTokenException
-auth/web          AuthController, AuthExceptionHandler, RefreshTokenCookies, dto/
+common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
+auth/             SecurityConfig (resource server)
+auth/web          SecurityProblemHandler
 user/             UserService
 user/domain       User (normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
-user/web          UserController (GET /api/users/me), dto/MeResponse
+user/web          UserController (GET /api/users/me — K3/K4'te yeniden yazılacak), dto/MeResponse
 ```
 
 ## Known technical debt
