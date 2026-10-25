@@ -23,7 +23,10 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Token'ları Keycloak üretir; uygulama yalnız doğrular. Keycloak K1'de compose'a eklenir,
-          # doğrulamanın ayrıntıları (JWKS, audience) K2'de. Discovery ilk token geldiğinde yapılır,
-          # bu yüzden Keycloak kapalıyken de uygulama açılır.
+          # Token'ları Keycloak üretir; uygulama yalnız doğrular.
+          # issuer-uri: ilk token geldiğinde <issuer>/.well-known/openid-configuration okunur, JWKS adresi oradan bulunur
+          # (bu yüzden Keycloak kapalıyken de uygulama açılır). Token'daki "iss" bu değerle birebir aynı olmalı.
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/deeptodo}
+          # Token'ın "aud" claim'i bu değeri içermeli: aynı realm'in başka bir uygulama için ürettiği token burada geçmez.
+          # Keycloak'ta deeptodo-web / deeptodo-dev client'larındaki audience mapper bu değeri token'a yazar.
+          audiences: ${KEYCLOAK_AUDIENCE:deeptodo-api}

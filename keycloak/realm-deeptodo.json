@@ -12,6 +12,16 @@
   "rememberMe": false,
   "clients": [
     {
+      "clientId": "deeptodo-api",
+      "name": "DeepToDo API (resource server) - token istemez, yalnız token'ların audience'ı",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
       "clientId": "deeptodo-web",
       "name": "DeepToDo web istemcisi (public, authorization code + PKCE)",
       "protocol": "openid-connect",
@@ -20,12 +30,30 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:3000/*"],
-      "webOrigins": ["+"],
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:3000/*"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "audience: deeptodo-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "deeptodo-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "clientId": "deeptodo-dev",
@@ -35,7 +63,21 @@
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": false
+      "serviceAccountsEnabled": false,
+      "protocolMappers": [
+        {
+          "name": "audience: deeptodo-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "deeptodo-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -46,7 +88,13 @@
       "firstName": "Alice",
       "lastName": "Test",
       "enabled": true,
-      "credentials": [{ "type": "password", "value": "alice-local-pass", "temporary": false }]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "alice-local-pass",
+          "temporary": false
+        }
+      ]
     },
     {
       "username": "bob@example.com",
@@ -55,7 +103,13 @@
       "firstName": "Bob",
       "lastName": "Test",
       "enabled": true,
-      "credentials": [{ "type": "password", "value": "bob-local-pass", "temporary": false }]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bob-local-pass",
+          "temporary": false
+        }
+      ]
     }
   ]
 }
