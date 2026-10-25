@@ -36,6 +36,19 @@ public class User extends AuditableEntity {
         this.status = UserStatus.ACTIVE;
     }
 
+    // PATCH /api/users/me: yalnız düşük riskli profil alanı (spec §11).
+    public void rename(String newDisplayName) {
+        if (newDisplayName == null || newDisplayName.isBlank()) {
+            throw new IllegalArgumentException("display name can not be null or blank");
+        }
+        this.displayName = newDisplayName.strip();
+    }
+
+    // DELETE /api/users/me: hard delete yok, hesap kapatılır (spec §7.1, §14).
+    public void deactivate() {
+        this.status = UserStatus.DEACTIVATED;
+    }
+
     // Kaydederken ve ararken aynı kural kullanılmalı; aksi halde aynı kişi iki farklı email ile görünür.
     // Locale.ROOT: Türkçe locale'de "I".toLowerCase() noktasız "ı" üretir.
     public static String normalizeEmail(String raw) {
