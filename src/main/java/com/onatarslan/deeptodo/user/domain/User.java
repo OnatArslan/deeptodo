@@ -25,8 +25,8 @@ public class User extends AuditableEntity {
 
     }
 
-    // Parola Keycloak'ta. users.password_hash kolonu (V1, NOT NULL) K3 migration'ında kaldırılır;
-    // o zamana kadar kullanıcı oluşturan bir akış yok.
+    // users.password_hash kolonu (V1, NOT NULL) DB'de duruyor; alan R2'de (parola + register) entity'ye geri eklenir.
+    // O zamana kadar kullanıcı oluşturan bir akış yok.
     public User(String email, String displayName) {
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("display name can not be null or blank");
