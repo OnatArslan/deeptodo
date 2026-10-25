@@ -2,10 +2,12 @@ package com.onatarslan.deeptodo.auth.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
@@ -38,6 +40,13 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
+        // Token hakkında karar verilemedi (ör. Keycloak'a ulaşılamıyor, JWKS indirilemiyor). İstemcinin token'ı
+        // geçersiz değil; 401 dönersek istemci boşuna yeniden login olur. Doğrusu 503: geçici, sonra tekrar dene.
+        if (authException instanceof AuthenticationServiceException) {
+            response.setHeader(HttpHeaders.RETRY_AFTER, "30");
+            writeProblem(request, response, HttpStatus.SERVICE_UNAVAILABLE, "Identity provider is unavailable, try again later");
+            return;
+        }
         bearerEntryPoint.commence(request, response, authException);
         writeProblem(request, response, HttpStatus.UNAUTHORIZED, "Missing or invalid access token");
     }

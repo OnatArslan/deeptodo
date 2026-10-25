@@ -5,9 +5,12 @@ import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.security.web.authentication.AuthenticationEntryPointFailureHandler;
 import org.springframework.security.web.SecurityFilterChain;
 
 // Uygulama yalnız OAuth2 Resource Server: token'ları Keycloak üretir, burada sadece doğrulanır.
@@ -42,7 +45,25 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(securityProblemHandler)
                         .accessDeniedHandler(securityProblemHandler)
-                        .jwt(Customizer.withDefaults()));
+                        .jwt(Customizer.withDefaults())
+                        .withObjectPostProcessor(identityProviderFailuresGoToEntryPoint(securityProblemHandler)));
         return http.build();
+    }
+
+    // Token doğrulanırken "token geçersiz" (401) dışında bir hata olabilir: Keycloak'a ulaşılamadığı için JWKS indirilemez.
+    // Spring bu durumda AuthenticationServiceException'ı varsayılan olarak yukarı fırlatır ve istemci 500 alır.
+    // Burada filter'ın failure handler'ını değiştirip o exception'ı da entry point'e (SecurityProblemHandler) yolluyoruz;
+    // orada 503 + Retry-After'a çevriliyor.
+    private static ObjectPostProcessor<BearerTokenAuthenticationFilter> identityProviderFailuresGoToEntryPoint(
+            SecurityProblemHandler securityProblemHandler) {
+        return new ObjectPostProcessor<>() {
+            @Override
+            public <O extends BearerTokenAuthenticationFilter> O postProcess(O filter) {
+                var failureHandler = new AuthenticationEntryPointFailureHandler(securityProblemHandler);
+                failureHandler.setRethrowAuthenticationServiceException(false);
+                filter.setAuthenticationFailureHandler(failureHandler);
+                return filter;
+            }
+        };
     }
 }

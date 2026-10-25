@@ -22,7 +22,7 @@ Adım bitince `[x]` ve PR numarası yazılır. Sıra değişikliği Onat'ın kar
 
 - [x] **K1** (#7) Keycloak'ı local'e kur: compose servisi, PostgreSQL'de ayrı `keycloak` database'i, `deeptodo` realm'i (export dosyası repoda, açılışta import), client'lar, test kullanıcıları.
   Anlatım: realm / client / user / role modeli, OIDC discovery, authorization code + PKCE akışı, token'ın anatomisi.
-- [ ] **K2** Resource server'ı Keycloak'a bağla: `issuer-uri`, JWKS ile imza doğrulama, `aud` (audience) doğrulaması, key rotation.
+- [x] **K2** (#8) Resource server'ı Keycloak'a bağla: `issuer-uri`, JWKS ile imza doğrulama, `aud` (audience) doğrulaması, key rotation.
   Anlatım: token doğrulamanın her adımı, issuer uyuşmazlığı tuzağı (localhost vs container adı).
 - [ ] **K3** Yerel kullanıcı eşleme: migration (`users.auth_subject` eklenir, `password_hash` ve `refresh_tokens` kaldırılır),
   ilk istekte just-in-time provisioning, `CurrentUser` (`sub` → yerel user id), DEACTIVATED kullanıcının reddi.

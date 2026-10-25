@@ -16,9 +16,9 @@ Karar (2026-10-24): kimlik yönetimi Keycloak'a devredildi (spec v4 §10). Uygul
 
 ## Active task
 
-_None._ Sıradaki: **K2** — resource server'ı Keycloak'a bağla (audience doğrulaması, Keycloak'a ulaşılamama durumu).
+_None._ Sıradaki: **K3** — yerel kullanıcı eşleme (`sub` → `users`, just-in-time provisioning, migration). ⚠️ Local DB volume sıfırlaması gerekebilir.
 
-Ara durum (K1 sonrası, K3'e kadar): Keycloak token'ı doğrulanıyor (geçerli token → istek controller'a ulaşır, bozuk imza → 401). `/api/users/me` 500 döner çünkü `sub` henüz yerel kullanıcıya eşlenmiyor (K3). Uygulama açıldıktan sonra Keycloak'a hiç ulaşamadıysa token'lı istek **500** (`JwtDecoderInitializationException`); key'leri bir kez aldıysa Keycloak kapalıyken de doğrulama sürer — K2'de ele alınır.
+Ara durum (K2 sonrası, K3'e kadar): Keycloak token'ı imza + `iss` + `exp` + `aud` ile doğrulanıyor. `/api/users/me` 500 döner çünkü `sub` henüz yerel kullanıcıya eşlenmiyor (K3).
 
 Not: DT-003'te yazılan ve elle doğrulanan refresh token akışı (opaque token, SHA-256 hash, rotation, katı reuse detection) git geçmişinde duruyor (`679ece5`). K5'te Keycloak'ın aynı işi nasıl yaptığıyla karşılaştırılacak.
 
@@ -35,6 +35,14 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### K2 — Resource server sıkılaştırma ✅ (2026-10-25)
+
+- Realm: `deeptodo-api` client'ı (token istemez; yalnız audience adı) + `deeptodo-web` / `deeptodo-dev`'de `oidc-audience-mapper` → access token'da `aud: deeptodo-api`
+- `application.yaml`: `spring.security.oauth2.resourceserver.jwt.audiences: deeptodo-api` (`KEYCLOAK_AUDIENCE`) → Boot, varsayılan validator'lara (exp/nbf, iss) audience validator'ı ekler
+- Keycloak'a ulaşılamadığı için token hakkında karar verilemezse (JWKS indirilemez) 503 + `Retry-After: 30` ProblemDetail: `BearerTokenAuthenticationFilter`'ın failure handler'ı `AuthenticationServiceException`'ı yeniden fırlatmak yerine `SecurityProblemHandler`'a yollar
+- Manual smoke ✅: `aud`'suz token → 401 `The aud claim is not valid`; realm güncellendikten sonra 404 (geçti); key'ler alındıktan sonra Keycloak kapalı → geçerli token geçer; Keycloak kapalıyken tanınmayan `kid` → 503 + `Retry-After`; uygulama Keycloak'ı hiç görmeden kapalıysa → 500, Keycloak gelince kendiliğinden düzelir (TD-13)
+- Key rotation ✅: yeni key provider (priority 200) → yeni `kid`'li token, çalışan uygulama yeniden başlatılmadan kabul etti (tanınmayan kid → JWKS yeniden indirildi); eski key'li token da geçerli. Silinen key'in token'ı JWKS cache süresi boyunca kabul edilmeye devam etti (beklenen; key iptali anlık değil)
 
 ### K1 — Keycloak local kurulum ✅ (2026-10-24)
 
@@ -81,7 +89,9 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
   `docker exec -i deeptodo-postgres psql -U deeptodo -d postgres < docker/postgres-init/01-create-keycloak-db.sql`
 - curl ile token (yalnız local `deeptodo-dev` client'ı):
   `curl -s -X POST localhost:8180/realms/deeptodo/protocol/openid-connect/token -d grant_type=password -d client_id=deeptodo-dev -d username=alice@example.com -d password=alice-local-pass`
-- Realm dosyası yalnız realm yokken import edilir; dosyayı değiştirdikten sonra uygulamak için Keycloak database'i sıfırlanır ya da realm admin console'dan silinir.
+- Realm dosyası yalnız realm yokken import edilir. Dosyadaki client değişikliklerini kullanıcıları silmeden canlı realm'e uygulamak (partial import, `OVERWRITE`):
+  `ADM=$(curl -s -X POST localhost:8180/realms/master/protocol/openid-connect/token -d grant_type=password -d client_id=admin-cli -d username=admin -d password=admin | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')`
+  `python3 -c 'import json; d=json.load(open("keycloak/realm-deeptodo.json")); print(json.dumps({"ifResourceExists":"OVERWRITE","clients":d["clients"]}))' | curl -s -X POST -H "Authorization: Bearer $ADM" -H 'Content-Type: application/json' --data-binary @- localhost:8180/admin/realms/deeptodo/partialImport`
 
 ## Applied migrations
 
@@ -115,6 +125,7 @@ user/web          UserController (GET /api/users/me — K3/K4'te yeniden yazıla
 | ID | Debt | Planned phase |
 |---|---|---|
 | TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
+| TD-13 | Uygulama Keycloak'a hiç ulaşamadan istek alırsa 500 (`JwtDecoderInitializationException` `JwtException` değil, failure handler'a ulaşmıyor). Keycloak gelince kendiliğinden düzelir; production'da `depends_on: keycloak healthy` ile önlenir. Tam çözüm Boot'un decoder'ını sarmalamak | F2 |
 | TD-12 | Validation 400 cevabı hangi alanın hatalı olduğunu söylemiyor (`detail: Invalid request content.`); beklenmeyen 500'ler hâlâ Boot'un `/error` JSON'u (ProblemDetail değil) | Phase 4 (E2 ile) |
 
 Keycloak kararıyla kapanan borçlar: TD-4 (login rate limit → Keycloak brute force detection), TD-8'in refresh rotation kısmı (son OWNER testi W3'te), TD-9 (refresh cookie Secure → cookie kalmadı), TD-10 (rate limit IP / forward headers → E4'te genel olarak ele alınır).
