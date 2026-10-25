@@ -20,7 +20,7 @@ Adım bitince `[x]` yazılır; commit'ten sonra kısa SHA eklenir (2026-10-25'e 
 - [x] **A4** (#10) Auth sıfırlama: Keycloak (compose, realm, database), `auth` paketinin tamamı, security dependency'leri ve `/api/users/me` kaldırılır.
   DB şeması (`users.password_hash`, `refresh_tokens`) olduğu gibi kalır; yeniden kurulumda kullanılır
 
-- [x] **A5** Çalışma akışı: PR yok, `develop`'a doğrudan commit; adım Onat okuyana kadar commit edilmeden bekler
+- [x] **A5** (7e9d0fd) Çalışma akışı: PR yok, `develop`'a doğrudan commit; adım Onat okuyana kadar commit edilmeden bekler
 
 Geçmiş (bırakılan yol, kayıt için): Keycloak'a geçiş planı (#4), kendi auth kodunun kaldırılması (#5), Keycloak local kurulum (#7),
 Keycloak resource server sıkılaştırma (#8). Kod git geçmişinde; kavramlar (`kid`, `iss` / `aud`, key rotation) R adımlarında kullanılır.
@@ -28,7 +28,7 @@ Commit edilmemiş eski user / workspace kodu `wip/user-workspace-reference` bran
 
 ## R — Authentication (spec §10, Phase 3) 🔬
 
-- [ ] **R1** Spring Security'yi ekle: dependency'nin tek başına yaptığı (her şey kilitli, üretilmiş parola), sonra kendi `SecurityFilterChain`'imiz:
+- [x] **R1** Spring Security'yi ekle: dependency'nin tek başına yaptığı (her şey kilitli, üretilmiş parola), sonra kendi `SecurityFilterChain`'imiz:
   stateless, CSRF kararı, health açık, 401 / 403 ProblemDetail (`SecurityProblemHandler`). Filter zincirini TRACE log ile gözlemleme
 - [ ] **R2** Parola + register: `PasswordEncoder` (delegating, bcrypt), `User.passwordHash`, `POST /api/auth/register` (email normalize, tekil → 409)
 - [ ] **R3** Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; timing attack koruması; yanlış parola / bilinmeyen email aynı 401

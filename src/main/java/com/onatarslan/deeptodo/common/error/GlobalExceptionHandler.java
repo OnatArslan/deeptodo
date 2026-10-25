@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 // Feature'ların ortak hata sözleşmesi (spec §13). Domain exception'ları HTTP bilmez; eşleme burada.
 // Validation (400) gibi Spring MVC hataları spring.mvc.problemdetails.enabled ile ProblemDetail döner.
-// Security filter zincirindeki 401/403 buraya hiç gelmez; onlar için ayrı bir handler gerekir (ROADMAP R1).
+// Security filter zincirindeki 401/403 buraya hiç gelmez: onları auth/web/SecurityProblemHandler yazar.
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

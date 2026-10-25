@@ -16,9 +16,9 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **R1** — Spring Security'yi ekle, kendi `SecurityFilterChain`'imiz.
+_None._ Sıradaki: **R2** — parola + register.
 
-Ara durum (A4 sonrası, R1'e kadar): uygulamada security yok; bütün endpoint'ler açık (şu an domain endpoint'i de yok). Health UP.
+Ara durum (R1 sonrası): Spring Security devrede, kendi `SecurityFilterChain`'imizle. Health dışındaki her istek 401 (henüz kimlik doğrulama mekanizması yok). Log'da hâlâ "Using generated security password" satırı çıkıyor: Boot, uygulamada `UserDetailsService` olmadığı için yedek bir in-memory kullanıcı oluşturuyor; zincirimiz onu kullanmıyor (Basic / form login kapalı). R3'te kendi `UserDetailsService`'imiz gelince kalkar.
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -33,6 +33,13 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R1 — Spring Security + kendi SecurityFilterChain ✅ (2026-10-25)
+
+- `spring-boot-starter-security` eklendi. Önce config'siz varsayılan gözlemlendi: 17 filter'lık zincir, üretilmiş parola, curl'e 401 + `WWW-Authenticate: Basic` + `JSESSIONID` cookie, tarayıcıya 302 → `/login` form sayfası, Basic auth ile doğru parola 404 (geçti), health açık (Boot actuator kuralı), CSRF token'sız POST → CsrfFilter 403 verir ama `/error` forward'ı da korumalı olduğu için istemci 401 görür
+- `auth/config/SecurityConfig`: stateless (session / `JSESSIONID` yok), CSRF kapalı (kimlik header'da; refresh cookie'si R7'de yeniden değerlendirilir), logout ve request cache filter'ları kapalı, `/actuator/health` ve `ERROR` dispatch açık, gerisi `authenticated()`; 401 / 403 → `SecurityProblemHandler`
+- `auth/web/SecurityProblemHandler`: 401 → `WWW-Authenticate: Bearer` + ProblemDetail; 403 → ProblemDetail
+- Manual smoke ✅: zincir 9 filter (`DisableEncodeUrl`, `WebAsyncManagerIntegration`, `SecurityContextHolder`, `HeaderWriter`, `SecurityContextHolderAwareRequest`, `Anonymous`, `SessionManagement`, `ExceptionTranslation`, `Authorization`); health 200; korumalı istek 401 problem+json (curl, tarayıcı, Basic header'lı POST hepsi); `/login` artık yok (401); session cookie yazılmıyor; TRACE ile tek isteğin filter filter yolu gözlemlendi
 
 ### A5 — Commit bazlı çalışma akışı ✅ (2026-10-25)
 
@@ -113,6 +120,8 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
+auth/config       SecurityConfig
+auth/web          SecurityProblemHandler
 user/domain       User (email, displayName, status; normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
 ```
 

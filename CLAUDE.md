@@ -58,7 +58,8 @@ Feature branch açılmaz. Geçmişte açılmış referans branch'leri (ör. `wip
 ```text
 "devam"  ─▶ 1. Önceki adım commit edilmemiş duruyorsa: commit + push (develop). Çalışma ağacı temiz.
          ─▶ 2. Sıradaki adımı planla, kodu yaz, doğrula, ROADMAP / STATUS'u güncelle.
-         ─▶ 3. Commit ETME. Chat'te anlat. Değişiklikler sağ panelde (uncommitted) görünür.
+         ─▶ 3. Commit ETME. Yeni dosyaları `git add -N` ile işaretle (git takip etmediği dosyaları diff'te göstermez).
+               Chat'te anlat. Değişiklikler sağ panelde (uncommitted) görünür.
 Onat okur, sorar ─▶ istenen düzeltmeler aynı adıma (hâlâ commit edilmemiş) eklenir.
 "devam"  ─▶ döngü başa döner.
 ```
