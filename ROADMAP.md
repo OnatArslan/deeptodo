@@ -3,11 +3,12 @@
 Hedef: projeyi bugünkü noktadan **public HTTPS'te çalışan v1**'e getirmek (spec §17), sonra Redis / Kafka öğrenme modülleri (spec §2.1).
 Authentication uygulamada, Spring Security ile **sıfırdan, adım adım** yeniden kurulur (karar 2026-10-25, spec §10).
 
-Kurallar (`CLAUDE.md`): her prompt bir adım, her adım bir PR (~300 satır / 10 dosya), Claude merge eder ve chat'te anlatır.
+Kurallar (`CLAUDE.md`): her prompt bir adım, her adım `develop`'a tek commit (~300 satır / 10 dosya). Claude adımı yazar ve anlatır;
+Onat sağ panelde okur, bir sonraki "devam"da commit + push edilir.
 🔬 işaretli adımlarda anlatım **derin** yapılır (`CLAUDE.md` → "Derin anlatım").
-Adım bitince `[x]` ve PR numarası yazılır. Sıra değişikliği Onat'ın kararıdır.
+Adım bitince `[x]` yazılır; commit'ten sonra kısa SHA eklenir (2026-10-25'e kadarki adımlarda PR numarası). Sıra değişikliği Onat'ın kararıdır.
 
-İşaretler: `[ ]` yapılmadı · `[x]` merge edildi · ⚠️ Onat'ın onayı gerekir · 🔬 derin anlatım
+İşaretler: `[ ]` yapılmadı · `[x]` tamamlandı · ⚠️ Onat'ın onayı gerekir · 🔬 derin anlatım
 
 ---
 
@@ -18,6 +19,8 @@ Adım bitince `[x]` ve PR numarası yazılır. Sıra değişikliği Onat'ın kar
 - [x] **A3** Auth sıfırlama planı: ROADMAP, spec v5, CLAUDE.md (#9)
 - [x] **A4** (#10) Auth sıfırlama: Keycloak (compose, realm, database), `auth` paketinin tamamı, security dependency'leri ve `/api/users/me` kaldırılır.
   DB şeması (`users.password_hash`, `refresh_tokens`) olduğu gibi kalır; yeniden kurulumda kullanılır
+
+- [x] **A5** Çalışma akışı: PR yok, `develop`'a doğrudan commit; adım Onat okuyana kadar commit edilmeden bekler
 
 Geçmiş (bırakılan yol, kayıt için): Keycloak'a geçiş planı (#4), kendi auth kodunun kaldırılması (#5), Keycloak local kurulum (#7),
 Keycloak resource server sıkılaştırma (#8). Kod git geçmişinde; kavramlar (`kid`, `iss` / `aud`, key rotation) R adımlarında kullanılır.

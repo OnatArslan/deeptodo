@@ -20,7 +20,7 @@ Bu projenin birinci amacı çalışan bir CRUD API üretmek değil; aynı codeba
 - Docker build ve public deployment
 - Redis (paylaşılan state, TTL'li veri) ve Kafka (domain event'leri, transactional outbox) — §2.1 öğrenme modülleri
 
-Proje agentic geliştirilir: kodu Claude küçük, öğretici PR'larla yazar ve `develop`'a merge eder; Onat yönlendirir, okur ve sorar (bkz. `CLAUDE.md`).
+Proje agentic geliştirilir: kodu Claude küçük, öğretici adımlarla yazar ve her adımı `develop`'a tek commit olarak ekler; Onat yönlendirir, okur ve sorar (bkz. `CLAUDE.md`).
 
 Proje **scope kontrollü** tutulur. Kursta öğrenilen her teknolojiyi DeepToDo'ya eklemek hedef değildir.
 
@@ -85,7 +85,7 @@ Bu liste ancak gerçek ürün/öğrenme ihtiyacı oluşursa bilinçli karar ile 
 ### 2.1 Öğrenme modülleri — Redis ve Kafka (karar 2026-10-23)
 
 Redis ve Kafka, uygulama tek instance çalıştığı sürece **zorunlu değildir**; öğrenme amacıyla, kodda zaten var olan
-somut bir problemi çözen yerlere eklenir. Her use-case ayrı, küçük bir PR'dır. Listede olmayan bir yere eklenmez.
+somut bir problemi çözen yerlere eklenir. Her use-case ayrı, küçük bir adımdır (tek commit). Listede olmayan bir yere eklenmez.
 
 Redis:
 - **Paylaşılan login rate limit:** in-memory `LoginRateLimiter` yerine Redis sayaçları (`INCR` + `EXPIRE`); birden çok instance aynı sayacı görür.
@@ -878,7 +878,7 @@ Soft-delete her tabloya mekanik uygulanmaz.
 
 Automated testing ana geliştirme fazlarının sonuna bırakılır.
 
-Concurrency'ye dayanan invariant'lar (aşağıdaki istisna) ve Redis / Kafka entegrasyonları, ilgili PR'da Testcontainers ile gerçek altyapıya karşı test edilir.
+Concurrency'ye dayanan invariant'lar (aşağıdaki istisna) ve Redis / Kafka entegrasyonları, ilgili adımda Testcontainers ile gerçek altyapıya karşı test edilir.
 
 Phase 0–3 boyunca:
 - code compile edilir
@@ -1061,7 +1061,7 @@ V1 public deploy ile kapanır.
 
 ### Phase 5 — Redis / Kafka öğrenme modülleri
 
-§2.1'deki use-case'ler, her biri ayrı küçük PR olarak. Sıra ve Phase 1–4'e göre zamanlaması Onat'ın kararıdır ve STATUS'a yazılır.
+§2.1'deki use-case'ler, her biri ayrı küçük adım (commit) olarak. Sıra ve Phase 1–4'e göre zamanlaması Onat'ın kararıdır ve STATUS'a yazılır.
 Önerilen sıra: Redis rate limit → access token denylist → outbox tablosu + relay → `UserDeactivated` → (Todo'dan sonra) `WorkspaceMemberRemoved`.
 
 ## 19. Task sizing
@@ -1082,8 +1082,8 @@ Implement Todo module
 
 Mekanik küçük işler formal task olmak zorunda değildir.
 
-**Bir task = bir PR.** PR boyutu ve şablonu `CLAUDE.md`'dedir (yaklaşık 300 satır / 10 dosya sınırı, tek kavram).
-Bir dikey dilim bu sınırı aşıyorsa sıralı birkaç PR'a bölünür (ör. migration + entity → service → endpoint).
+**Bir task = bir commit.** Boyut ve commit mesajı şablonu `CLAUDE.md`'dedir (yaklaşık 300 satır / 10 dosya sınırı, tek kavram).
+Bir dikey dilim bu sınırı aşıyorsa sıralı birkaç adıma bölünür (ör. migration + entity → service → endpoint).
 
 ## 20. Definition of Done
 

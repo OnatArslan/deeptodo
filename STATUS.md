@@ -34,6 +34,10 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 
 ## Completed tasks
 
+### A5 — Commit bazlı çalışma akışı ✅ (2026-10-25)
+
+- PR akışı kaldırıldı: her adım `develop`'a doğrudan tek commit. Adım bitince commit edilmeden bekler (sağ paneldeki diff'te görünsün diye); Onat'ın bir sonraki "devam"ında commit + push (`CLAUDE.md` → "Commit akışı")
+
 ### A4 — Auth sıfırlama ✅ (2026-10-25)
 
 - Kaldırıldı: Keycloak (compose servisi, `keycloak/realm-deeptodo.json`, `docker/postgres-init`, local `keycloak` database'i ve rolü), `auth` paketinin tamamı (`SecurityConfig`, `SecurityProblemHandler`), `spring-boot-starter-security`, `spring-boot-starter-security-oauth2-resource-server`, `spring-security-test`, `spring.security.*` ayarı, `UserController` (`/api/users/me`) ve `UserService`

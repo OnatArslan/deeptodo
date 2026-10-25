@@ -1,9 +1,9 @@
 # CLAUDE.md — DeepToDo
 
 DeepToDo, workspace tabanlı collaborative task management backend'i (Java 21, Spring Boot 4.1).
-Proje **agentic** geliştirilir: `ROADMAP.md`'deki adımları Claude uygular (kod, doğrulama, PR, merge).
+Proje **agentic** geliştirilir: `ROADMAP.md`'deki adımları Claude uygular (kod, doğrulama, `develop`'a commit).
 
-Normal agentic projelerden tek farkı: büyük ve kapsamlı PR'lar yerine **her prompt'ta tek bir küçük adım**
+Normal agentic projelerden tek farkı: büyük ve kapsamlı değişiklikler yerine **her prompt'ta tek bir küçük adım**
 ve o adımın **chat'te anlatılması**. Onat kodu okur, "bu neden böyle?" diye sorar; Claude anlatır.
 Onat'ın her adımı anlayabilmesi, adımın çalışması kadar önemlidir.
 
@@ -21,87 +21,83 @@ Doküman ile kod çelişirse sessizce düzeltme; çelişkiyi açıkça söyle.
 ## Roller
 
 **Claude — geliştirici ve anlatıcı.** Roadmap'teki sıradaki adımı planlar, kodu ve migration'ı yazar,
-doğrular, PR açar, `develop`'a **merge eder** ve chat'te ne yaptığını ve nedenini anlatır.
+doğrular, chat'te ne yaptığını ve nedenini anlatır; Onat okuduktan sonra `develop`'a **commit edip push eder**.
 
 **Onat — product owner, okuyucu, öğrenen.** Prompt ile ilerletir ("devam" ya da belirli bir adım),
 kodu okur, soru sorar. Kapsam ve mimari kararlar Onat'ındır.
 
 **Onay gerektirenler (Onat'a tek satır sor, bekle):** `develop` → `main` release, production deploy / production'a
-dokunan her işlem, uygulanmış (merge edilmiş) bir migration'ı değiştirmek, kapsam değişikliği.
+dokunan her işlem, uygulanmış (commit edilmiş) bir migration'ı değiştirmek, kapsam değişikliği.
 
 ---
 
-## PR akışı
+## Commit akışı (karar 2026-10-25)
+
+PR yok. Her adım doğrudan `develop`'a tek bir commit olarak girer. Onat değişikliği sağ paneldeki diff ağacında
+okuyabilsin diye adım **commit edilmeden bekletilir**; commit, Onat'ın bir sonraki "devam"ında yapılır.
 
 ### Branch modeli
 
 ```text
 main      ← yalnız Onat'ın kararıyla develop'tan alınır (release)
-develop   ← bütün PR'ların hedefi
-feat/<kısa-ad>, fix/<kısa-ad>, docs/<kısa-ad>, chore/<kısa-ad>   ← her task için bir branch, develop'tan açılır
+develop   ← bütün adımların commit'leri doğrudan burada
 ```
 
-### Bir prompt = bir roadmap adımı = bir PR
+Feature branch açılmaz. Geçmişte açılmış referans branch'leri (ör. `wip/user-workspace-reference`) yalnız okunur.
 
-- Bir PR, Onat'ın tek oturuşta okuyup anlayabileceği büyüklüktedir: **yaklaşık 300 satır değişiklik ve 10 dosyayı geçmez**
+### Bir prompt = bir roadmap adımı = bir commit
+
+- Bir adım, Onat'ın tek oturuşta okuyup anlayabileceği büyüklüktedir: **yaklaşık 300 satır değişiklik ve 10 dosyayı geçmez**
   (migration ve test dahil). Geçecekse işi böl ve önce bölme planını göster.
-- Bir PR tek bir şey öğretir. "Rate limiter + token denylist + refresh refactor" üç PR'dır.
-- Adım bitince PR merge edilir (squash); bir sonraki prompt bir sonraki adımı açar. Aynı anda tek açık PR olur.
-- Kendiliğinden ilgisiz refactor, yeni dependency ya da kapsam dışı iş ekleme. Gerekli görürsen PR açıklamasında
+- Bir adım tek bir şey öğretir. "Rate limiter + token denylist + refresh refactor" üç adımdır.
+- Kendiliğinden ilgisiz refactor, yeni dependency ya da kapsam dışı iş ekleme. Gerekli görürsen chat'te
   "Sonraki adım önerisi" olarak yaz; karar Onat'ın.
 
-### Her PR'dan önce
+### Adımın yaşam döngüsü
+
+```text
+"devam"  ─▶ 1. Önceki adım commit edilmemiş duruyorsa: commit + push (develop). Çalışma ağacı temiz.
+         ─▶ 2. Sıradaki adımı planla, kodu yaz, doğrula, ROADMAP / STATUS'u güncelle.
+         ─▶ 3. Commit ETME. Chat'te anlat. Değişiklikler sağ panelde (uncommitted) görünür.
+Onat okur, sorar ─▶ istenen düzeltmeler aynı adıma (hâlâ commit edilmemiş) eklenir.
+"devam"  ─▶ döngü başa döner.
+```
+
+- Onat "commitle" derse anlatımdan sonra beklemeden commit + push edilir.
+- Doğrulama geçmediyse adım öyle bırakılmaz: sorun chat'te açıkça söylenir, düzeltilir ya da adım geri alınır.
+- Commit edilmiş geçmiş yeniden yazılmaz (`--amend` / rebase / force push yok); sonradan düzeltme yeni commit'tir.
+
+### Her adımdan önce
 
 1. İlgili kodu ve spec bölümünü oku.
 2. Kısa bir plan yaz: ne değişecek, hangi dosyalar, neden bu sırayla. Mimari ya da kapsam kararı gerekiyorsa
    önce Onat'a sor (tek satır, seçenek + önerin).
 
-### Her PR'da
+### Her adımda
 
 - Kod + gerekiyorsa migration.
 - **Doğrulama:** derleme, uygulamanın açılması, migration'ların çalışması, değişen davranışın elle (curl) denenmesi;
-  concurrency ya da altyapı (Redis/Kafka) içeren davranışlarda otomatik test. Sonuçlar PR açıklamasına yazılır;
+  concurrency ya da altyapı (Redis/Kafka) içeren davranışlarda otomatik test. Sonuçlar commit mesajına ve chat'e yazılır;
   başarısız olan bir şey varsa açıkça söylenir.
-- `STATUS.md` güncellemesi (biten iş, yeni migration, teknik borç).
+- `ROADMAP.md`'de adım işaretlenir (`[x]` + commit'ten sonra kısa SHA), `STATUS.md` güncellenir (biten iş, yeni migration,
+  teknik borç) — aynı commit'te.
 
-### PR açıklaması şablonu (Türkçe; kalıcı kayıt — chat anlatımının özeti)
+### Commit mesajı (kalıcı kayıt — chat anlatımının özeti)
 
-```markdown
-## Ne
-Bir iki cümle: bu PR ne yapıyor.
+```text
+<İngilizce, emir kipinde başlık: "Add refresh token rotation">
 
-## Neden
-Hangi problemi çözüyor, spec'te nereye karşılık geliyor.
-
-## Öğrenme notu
-PR'ın öğrettiği tek kavram. Framework'ü sihir gibi anlatma: runtime'da ne olduğunu,
-hangi sınıfın hangi sırayla çalıştığını göster. Gerekirse küçük bir akış diyagramı (text).
-Kodda nereye bakılmalı: dosya + satır.
-
-## Nasıl denenir
-Kopyala-çalıştır komutlar (curl / docker / mvnw) ve beklenen çıktı.
-
-## Doğrulama sonuçları
-Çalıştırılan kontroller ve sonuçları.
-
-## Trade-off ve bilinçli olarak yapılmayanlar
-Seçilmeyen alternatifler ve nedeni; kapsam dışı bırakılanlar.
-
-## Sana sorular
-1–2 kısa kontrol sorusu (Onat'ın kavramı anlayıp anlamadığını kendisinin görmesi için).
+Ne: bir iki cümle (Türkçe).
+Neden: hangi problemi çözüyor, spec'te nereye karşılık geliyor; ROADMAP adımı.
+Doğrulama: çalıştırılan kontroller ve sonuçları.
+Bilinçli olarak yapılmayanlar: seçilmeyen alternatifler, kapsam dışı bırakılanlar.
 ```
-
-### Merge ve sonrası
-
-- Doğrulama geçtiyse Claude PR'ı `develop`'a **squash merge** eder ve branch'i siler. Doğrulama geçmediyse merge etmez, sorunu söyler.
-- `ROADMAP.md`'de adımı işaretler, `STATUS.md`'yi günceller (aynı PR içinde).
-- Onat sonradan bir değişiklik isterse yeni küçük bir PR açılır; merge edilmiş geçmiş yeniden yazılmaz.
 
 ### Chat anlatımı (her adımın sonunda)
 
 Kısa bir rapor değil, öğretici bir anlatım; ama tek adım, tek konu:
 
-1. **Ne yaptım** — 2–3 cümle + PR linki.
+1. **Ne yaptım** — 2–3 cümle; değişikliklerin sağ panelde commit edilmemiş olarak beklediği.
 2. **Nasıl çalışıyor** — runtime'da ne oluyor: hangi istek, hangi sınıf, hangi sırayla. Gerekirse küçük text diyagram.
 3. **Neden böyle** — önemli kararlar ve seçilmeyen alternatifler (her biri bir iki cümle).
 4. **Okuma rehberi** — Onat'ın hangi dosyayı hangi sırayla okuması gerektiği (`dosya:satır` linkleri).
@@ -135,12 +131,12 @@ ayıklayabilecek kadar anlamalıdır. Bu adımlarda chat anlatımı yukarıdaki 
 8. **Kontrol soruları** — 3–5 soru.
 
 Anlatım uzunsa birkaç mesaja bölünebilir; "bir mesajda tek konu" kuralı adımın alt konuları için esner.
-PR açıklamasındaki "Öğrenme notu" da bu adımlarda aynı derinliğin özetini taşır.
+Commit mesajı da bu adımlarda aynı derinliğin kısa özetini taşır.
 
 ### Commit
 
 - Açıklayıcı, İngilizce, emir kipinde başlık ("Add Redis-backed login rate limiter").
-- Commit ve PR metinlerinde Claude'a atıf yok.
+- Commit metinlerinde Claude'a atıf yok.
 - `secrets/` asla commit edilmez.
 
 ---
@@ -168,7 +164,7 @@ Gerekçeleri spec'te; burada yalnız sık karşılaşılanlar.
 - Tablolar çoğul `snake_case`; ID `UUID` (v7, uygulama tarafında üretilir); zaman `Instant` / `timestamptz`; enum string olarak saklanır.
 - Constraint isimleri: `pk_`, `uq_`, `fk_`, `ck_` + tablo + anlam.
 - FK, UNIQUE ve CHECK invariant'larını "Java'da zaten kontrol ediyorum" diye kaldırma; DB son savunma hattıdır.
-- **Uygulanmış (merge edilmiş) bir migration asla değiştirilmez;** düzeltme yeni migration'dır.
+- **Uygulanmış (commit edilmiş) bir migration asla değiştirilmez;** düzeltme yeni migration'dır.
 
 **JPA**
 - `@ManyToMany` yok; join tabloları açık entity'dir.
@@ -228,9 +224,9 @@ Davranışın sürüme bağlı olduğu ve sonucun önemli olduğu durumda resmi 
 ## Test politikası
 
 - Genel test suite'i Phase 4'te risk bazlı kurulur (spec §15).
-- İstisnalar (ilgili PR'da yazılır): concurrency'ye dayanan invariant'lar (son OWNER) ve
+- İstisnalar (ilgili adımda yazılır): concurrency'ye dayanan invariant'lar (son OWNER) ve
   Redis / Kafka entegrasyonları (Testcontainers ile gerçek altyapıya karşı).
-- Diğer PR'larda doğrulama: derleme + uygulamanın açılması + elle deneme; sonuçlar PR açıklamasında.
+- Diğer adımlarda doğrulama: derleme + uygulamanın açılması + elle deneme; sonuçlar commit mesajında.
 
 ---
 
