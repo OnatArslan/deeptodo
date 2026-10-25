@@ -16,7 +16,7 @@ Adım bitince `[x]` ve PR numarası yazılır. Sıra değişikliği Onat'ın kar
 - [x] **A1** Ortam: deeptodo-postgres'in host portunu çakışmayan bir porta taşı (5432'de başka proje var) (#2)
 - [x] **A2** Hata sözleşmesi: `common/error` (404 / 403 / 409) + filter zinciri 401 / 403 ProblemDetail + validation ProblemDetail (#3, #6)
 - [x] **A3** Auth sıfırlama planı: ROADMAP, spec v5, CLAUDE.md (#9)
-- [ ] **A4** Auth sıfırlama: Keycloak (compose, realm, database), `auth` paketinin tamamı, security dependency'leri ve `/api/users/me` kaldırılır.
+- [x] **A4** (#10) Auth sıfırlama: Keycloak (compose, realm, database), `auth` paketinin tamamı, security dependency'leri ve `/api/users/me` kaldırılır.
   DB şeması (`users.password_hash`, `refresh_tokens`) olduğu gibi kalır; yeniden kurulumda kullanılır
 
 Geçmiş (bırakılan yol, kayıt için): Keycloak'a geçiş planı (#4), kendi auth kodunun kaldırılması (#5), Keycloak local kurulum (#7),

@@ -16,7 +16,9 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **A4** — auth sıfırlama (Keycloak + `auth` paketi + security dependency'leri kaldırılır).
+_None._ Sıradaki: **R1** — Spring Security'yi ekle, kendi `SecurityFilterChain`'imiz.
+
+Ara durum (A4 sonrası, R1'e kadar): uygulamada security yok; bütün endpoint'ler açık (şu an domain endpoint'i de yok). Health UP.
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -31,6 +33,12 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### A4 — Auth sıfırlama ✅ (2026-10-25)
+
+- Kaldırıldı: Keycloak (compose servisi, `keycloak/realm-deeptodo.json`, `docker/postgres-init`, local `keycloak` database'i ve rolü), `auth` paketinin tamamı (`SecurityConfig`, `SecurityProblemHandler`), `spring-boot-starter-security`, `spring-boot-starter-security-oauth2-resource-server`, `spring-security-test`, `spring.security.*` ayarı, `UserController` (`/api/users/me`) ve `UserService`
+- Kaldı: DB şeması (V1–V3; `users.password_hash`, `refresh_tokens` R adımlarında kullanılacak), `common/error`, `User` entity'si
+- Manual smoke ✅: uygulama açılıyor, Flyway 4 migration'ı doğruladı (local DB'deki V4 önceki testlerden), health UP, `/api/users/me` → 404 ProblemDetail (security yok, endpoint yok)
 
 ### K2 — Resource server sıkılaştırma ✅ (2026-10-25) — bırakılan Keycloak yolu, A4'te kaldırılır
 
@@ -80,14 +88,6 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 
 - PostgreSQL (compose) host'ta `127.0.0.1:5433` → container 5432. Host 5432 bu makinede başka bir projenin (`library-postgres`) Postgres'inde; A1 (2026-10-23) ile taşındı.
 - `DB_URL` varsayılanı `jdbc:postgresql://localhost:5433/deeptodo`.
-- Keycloak `http://localhost:8180`, admin console `admin` / `admin` (yalnız local). Realm `deeptodo`, test kullanıcıları `alice@example.com` / `alice-local-pass`, `bob@example.com` / `bob-local-pass`.
-- Mevcut (K1'den önce oluşmuş) bir postgres volume'ünde Keycloak database'i bir kez elle açılır:
-  `docker exec -i deeptodo-postgres psql -U deeptodo -d postgres < docker/postgres-init/01-create-keycloak-db.sql`
-- curl ile token (yalnız local `deeptodo-dev` client'ı):
-  `curl -s -X POST localhost:8180/realms/deeptodo/protocol/openid-connect/token -d grant_type=password -d client_id=deeptodo-dev -d username=alice@example.com -d password=alice-local-pass`
-- Realm dosyası yalnız realm yokken import edilir. Dosyadaki client değişikliklerini kullanıcıları silmeden canlı realm'e uygulamak (partial import, `OVERWRITE`):
-  `ADM=$(curl -s -X POST localhost:8180/realms/master/protocol/openid-connect/token -d grant_type=password -d client_id=admin-cli -d username=admin -d password=admin | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')`
-  `python3 -c 'import json; d=json.load(open("keycloak/realm-deeptodo.json")); print(json.dumps({"ifResourceExists":"OVERWRITE","clients":d["clients"]}))' | curl -s -X POST -H "Authorization: Bearer $ADM" -H 'Content-Type: application/json' --data-binary @- localhost:8180/admin/realms/deeptodo/partialImport`
 
 ## Applied migrations
 
@@ -109,11 +109,7 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
-auth/             SecurityConfig (resource server)
-auth/web          SecurityProblemHandler
-user/             UserService
-user/domain       User (normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
-user/web          UserController (GET /api/users/me — K3/K4'te yeniden yazılacak), dto/MeResponse
+user/domain       User (email, displayName, status; normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
 ```
 
 ## Known technical debt
