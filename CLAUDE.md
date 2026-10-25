@@ -108,26 +108,30 @@ Kısa bir rapor değil, öğretici bir anlatım; ama tek adım, tek konu:
 5. **Kendin dene** — 1–3 komut ve beklenen sonuç.
 6. **Sıradaki adım** — roadmap'teki bir sonraki adımın tek satırlık özeti.
 
-### Derin anlatım — Keycloak, Redis, Kafka (ROADMAP'te 🔬)
+### Derin anlatım — Authentication, Redis, Kafka (ROADMAP'te 🔬)
 
-Bu üç teknoloji projeye dışarıdan bir sistem olarak girer; "çalışıyor" yetmez, Onat onları işletebilecek ve hata
+Bu üç konu projenin en zor ve en çok öğreten kısmıdır; "çalışıyor" yetmez, Onat onları işletebilecek ve hata
 ayıklayabilecek kadar anlamalıdır. Bu adımlarda chat anlatımı yukarıdaki altı bölümü korur ama **derinleşir**:
 
 1. **Problem ve alternatif** — Bu teknoloji hangi problemi çözüyor; kendimiz yazsaydık ne yazacaktık
-   (Keycloak için: kaldırdığımız register / login / refresh / rate limit kodumuz). Neyi kazandık, neyi kaybettik.
+   (auth için: framework'ün hazır verdiği ile bizim yazdığımız; Keycloak denemesinde aynı işin nasıl yapıldığı).
+   Neyi kazandık, neyi kaybettik.
 2. **Kavram modeli** — Temel kavramlar ve birbirleriyle ilişkisi, kendi terimleriyle
-   (Keycloak: realm, client, user, role, session, scope, mapper; Redis: key, veri yapıları, TTL, tek thread modeli;
+   (Spring Security: SecurityFilterChain ve filter sırası, Authentication, AuthenticationManager / Provider,
+   SecurityContext, JWT claim'leri, token ailesi; Redis: key, veri yapıları, TTL, tek thread modeli;
    Kafka: topic, partition, offset, consumer group, delivery semantics).
-3. **Protokol / wire seviyesi** — Ağda gerçekte ne gidip geliyor. Keycloak: OIDC discovery, authorization code + PKCE,
-   token endpoint istek/cevabı, JWKS, decode edilmiş token'ın claim'leri tek tek. Redis: çalışan komutlar
+3. **Protokol / wire seviyesi** — Ağda gerçekte ne gidip geliyor. Auth: HTTP istek / cevap header'ları
+   (`Authorization`, `WWW-Authenticate`, `Set-Cookie` flag'leri), decode edilmiş token'ın claim'leri tek tek,
+   DB'ye yazılan satırlar. Redis: çalışan komutlar
    (`redis-cli MONITOR` çıktısıyla). Kafka: kaydın key / value / header'ları, offset commit'i.
 4. **Runtime sırası** — Bir isteğin bizim kodumuzdan dış sisteme ve geri dönüşü; hangi sınıf, hangi ağ çağrısı,
    hangi sırayla. Sequence diyagramı (text).
 5. **Hata modları** — Dış sistem çökerse, yavaşlarsa, ağ koparsa, mesaj iki kez gelirse ne olur; kodumuz nasıl davranır.
    Mümkünse **denenerek gösterilir** (container durdurulur, sonuç gösterilir).
 6. **Konfigürasyon** — Eklenen her ayarın ne yaptığı; local ile production arasında neden farklı olduğu.
-7. **Kendin gözlemle** — Onat'ın kendi bakabileceği araçlar ve komutlar (Keycloak admin console / `kcadm.sh`,
-   token decode, `redis-cli`, `kafka-console-consumer`, ilgili log satırları).
+7. **Kendin gözlemle** — Onat'ın kendi bakabileceği araçlar ve komutlar (`curl -v`, token decode,
+   `logging.level.org.springframework.security=TRACE` ile filter zinciri, `psql` ile ilgili tablolar, `redis-cli`,
+   `kafka-console-consumer`, ilgili log satırları).
 8. **Kontrol soruları** — 3–5 soru.
 
 Anlatım uzunsa birkaç mesaja bölünebilir; "bir mesajda tek konu" kuralı adımın alt konuları için esner.
@@ -146,8 +150,8 @@ PR açıklamasındaki "Öğrenme notu" da bu adımlarda aynı derinliğin özeti
 `PROJECT_SPEC.md` bağlayıcıdır. Kapsam değişikliği normal bir refactor gibi yapılmaz: önce etkisini açıkla, karar Onat'ın.
 `STATUS.md`'deki "Locked scope decisions" uygulama sırasında yeniden açılmaz.
 
-Kimlik yönetimi Keycloak'tadır (spec §10): kullanıcı kaydı, login, token üretimi, refresh, brute force koruması
-uygulamada yazılmaz; uygulama yalnız Resource Server'dır.
+Authentication uygulamada, Spring Security ile yazılır (spec §10, karar 2026-10-25). Keycloak denendi ve bırakıldı;
+yeniden önerilmez.
 
 Redis ve Kafka yalnız spec §2.1'deki **öğrenme modülleri** use-case'leri için kullanılır; "production gibi dursun" diye
 başka yere eklenmez. Microservice, CQRS, event sourcing, generic BaseService/BaseRepository, AuditLog tablosu ve
@@ -187,12 +191,10 @@ Todo → hard delete     Tag → hard delete       Membership → hard delete
 ```
 
 **Security**
-- Token'ları Keycloak üretir; uygulama Spring Security Resource Server'ın yerleşik JWT doğrulamasını kullanır
-  (`issuer-uri`, JWKS, audience). Özel JWT filtresi, kendi login / token / refresh kodu yazma.
-- Kullanıcının kimliği token'daki `sub`'dır; yerel `users` satırına `auth_subject` ile eşlenir. Domain kodu Keycloak id'sini
-  değil yerel user id'yi kullanır.
-- Keycloak Admin API çağrısı dış ağ çağrısıdır: DB transaction'ının içinde yapılmaz.
-- Realm yapılandırması elle tıklanıp bırakılmaz; export dosyası repoda versiyonlanır.
+- Access token'ı uygulama üretir (RS256, `kid`); doğrulama Spring Security Resource Server'ın yerleşik JWT desteğiyle
+  (`iss`, `aud`, `exp`). Özel JWT doğrulama filtresi yazma.
+- Refresh token opaque'tır, DB'de yalnız hash'i durur; rotation ve reuse detection koşullu update ile (spec §7.9, §10).
+- Private key ve parolalar repoya girmez: local'de `secrets/` (gitignore), production'da env / secret.
 - Yetki rol değil veridir: aktif üyelik, workspace kapsamı, sahiplik. Kurallar service'te, sorgu seviyesinde
   (`resource id + workspace id`). Dinamik yetki bilgisi JWT'ye yazılmaz.
 - Filter zincirindeki hatalar `SecurityProblemHandler`, uygulama hataları `GlobalExceptionHandler` üzerinden ProblemDetail döner.
@@ -235,14 +237,12 @@ Davranışın sürüme bağlı olduğu ve sonucun önemli olduğu durumda resmi 
 ## Çalıştırma
 
 ```bash
-docker compose up -d        # local PostgreSQL (+ K1'den sonra Keycloak, G adımlarından sonra Redis, Kafka)
+docker compose up -d        # local PostgreSQL (+ G adımlarından sonra Redis, Kafka)
 ./mvnw spring-boot:run
 ./mvnw clean verify
 ```
 
 Local PostgreSQL host'ta `localhost:5433`'te (5432 bu makinede başka bir projede). `DB_URL` varsayılanı buna göre.
-Keycloak `http://localhost:8180` (admin console: `admin` / `admin`, yalnız local); realm `deeptodo`, test kullanıcıları ve
-token alma komutu `STATUS.md` → "Local environment".
 
 ---
 
@@ -250,4 +250,4 @@ token alma komutu `STATUS.md` → "Local environment".
 
 Türkçe; Java/Spring/SQL terimleri İngilizce. Her adımın sonunda "Chat anlatımı" yapısı. Onat bir şeyin nedenini
 sorduğunda: kısa cevap → runtime'da ne olduğu → koddaki yeri; framework'ü sihir gibi anlatma. Bir mesajda tek konu.
-Keycloak / Redis / Kafka adımlarında "Derin anlatım" bölümü geçerlidir.
+Auth / Redis / Kafka adımlarında (🔬) "Derin anlatım" bölümü geçerlidir.

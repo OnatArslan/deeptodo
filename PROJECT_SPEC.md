@@ -1,4 +1,4 @@
-# DeepToDo — Project Specification v4
+# DeepToDo — Project Specification v5
 
 ## 1. Proje amacı
 
@@ -13,15 +13,14 @@ Bu projenin birinci amacı çalışan bir CRUD API üretmek değil; aynı codeba
 - PostgreSQL ve schema design
 - transaction boundaries
 - concurrency
-- Spring Security (OAuth2 Resource Server)
-- Keycloak (kimlik sağlayıcı, OIDC; kendi container'ı, PostgreSQL'de ayrı database)
-- authentication / authorization (OAuth2 / OIDC, Keycloak)
+- Spring Security
+- authentication / authorization
 - backend testing
 - logging / health / metrics
 - Docker build ve public deployment
 - Redis (paylaşılan state, TTL'li veri) ve Kafka (domain event'leri, transactional outbox) — §2.1 öğrenme modülleri
 
-Proje agentic geliştirilir: kodu Claude küçük, öğretici PR'larla yazar; Onat yönlendirir, review eder ve merge eder (bkz. `CLAUDE.md`).
+Proje agentic geliştirilir: kodu Claude küçük, öğretici PR'larla yazar ve `develop`'a merge eder; Onat yönlendirir, okur ve sorar (bkz. `CLAUDE.md`).
 
 Proje **scope kontrollü** tutulur. Kursta öğrenilen her teknolojiyi DeepToDo'ya eklemek hedef değildir.
 
@@ -33,7 +32,7 @@ Ana ilke:
 
 ### Dahil
 
-- User registration / login — Keycloak üzerinden (OIDC); uygulama kendi login'ini yazmaz
+- User registration / login
 - Current user profile görüntüleme ve display-name update
 - User account deactivation
 - Workspace oluşturma, görüntüleme, rename ve archive
@@ -51,9 +50,10 @@ Ana ilke:
 - Todo ↔ User multi-assignee explicit join entity
 - Pagination / sorting / filtering
 - Basit title/description search
-- Keycloak'ın ürettiği JWT access token'ın Resource Server olarak doğrulanması
-- Refresh token rotation / reuse ve login brute-force koruması — Keycloak realm ayarları olarak
-- Keycloak kullanıcısının yerel `users` satırına eşlenmesi (just-in-time provisioning)
+- JWT access token
+- Opaque rotating refresh token
+- Refresh-token reuse detection
+- Login brute-force koruması (in-memory rate limit)
 - Resource-based authorization
 - Public OpenAPI documentation
 - Final aşamada Docker image + public HTTPS deployment
@@ -64,8 +64,9 @@ Ana ilke:
 - `ADMIN` role
 - automatic personal workspace
 - invitation/email workflow
-- email verification, forgot-password, MFA (Keycloak'ta birer ayar; SMTP gerektirdikleri için v1'de kapalı)
-- uygulama içinde kendi password / token / refresh token kodu
+- email verification
+- forgot-password
+- MFA
 - microservices
 - CQRS / event sourcing
 - WebSocket / SSE
@@ -81,18 +82,19 @@ Ana ilke:
 
 Bu liste ancak gerçek ürün/öğrenme ihtiyacı oluşursa bilinçli karar ile değiştirilir.
 
-### 2.1 Öğrenme modülleri — Redis ve Kafka (karar 2026-10-23, Keycloak'a göre güncellendi 2026-10-24)
+### 2.1 Öğrenme modülleri — Redis ve Kafka (karar 2026-10-23)
 
 Redis ve Kafka, uygulama tek instance çalıştığı sürece **zorunlu değildir**; öğrenme amacıyla, kodda zaten var olan
 somut bir problemi çözen yerlere eklenir. Her use-case ayrı, küçük bir PR'dır. Listede olmayan bir yere eklenmez.
 
 Redis:
-- **Kullanıcı eşleme cache'i:** her authenticated istek token'daki `sub`'ı yerel kullanıcıya çevirir (DB sorgusu). Sonuç (`user id` + `status`) Redis'te TTL ile tutulur; deactivation'da invalidation. Bayat veri riski (deactivate edilmiş kullanıcının TTL boyunca geçmesi) bu use-case'in öğrenme konusudur.
-- **Kullanıcı başına API rate limit:** yazma endpoint'lerinde `INCR` + `EXPIRE` sayaçları, 429 + `Retry-After`; birden çok instance aynı sayacı görür.
+- **Paylaşılan login rate limit:** in-memory `LoginRateLimiter` yerine Redis sayaçları (`INCR` + `EXPIRE`); birden çok instance aynı sayacı görür.
+- **Access token denylist:** logout ve hesap kapatmada token'ın `jti`'si, kalan ömrü kadar TTL ile Redis'e yazılır; JWT doğrulaması bu listeye de bakar. Kapatılan hesabın access token'ının 15 dk daha geçerli kalması sorununu kapatır.
+- **(Opsiyonel) Üyelik cache'i:** `requireMember` sonucunun cache'lenmesi ve rol/üyelik değişince invalidation. Yetki verisini cache'lemenin riskleri (bayat yetki) bu use-case'in öğrenme konusudur.
 
 Kafka:
 - **Transactional outbox:** domain event'leri iş verisiyle aynı transaction'da `outbox_events` tablosuna yazılır; ayrı bir relay bunları Kafka'ya yayınlar (dual-write problemi yok).
-- **`UserDeactivated` event'i:** consumer Keycloak Admin API ile kullanıcıyı disable eder ve session'larını kapatır. Hesap kapatmadaki "yerel DB + Keycloak" dual-write'ı böylece çözülür.
+- **`UserDeactivated` event'i:** `auth` modülü dinler ve kullanıcının refresh token'larını revoke eder (`user` → `auth` doğrudan bağımlılığı kalkar).
 - **`WorkspaceMemberRemoved` event'i:** TodoAssignee geldiğinde, çıkarılan üyenin atamalarını temizler.
 - Consumer'lar idempotent'tir (at-least-once teslimat varsayımı).
 
@@ -192,7 +194,7 @@ com.onatarslan.deeptodo
 ├── common
 │   ├── config      # cross-cutting bean/config
 │   └── error       # global exception handler, API error contract
-├── auth            # SecurityFilterChain (resource server), token → yerel kullanıcı eşleme, CurrentUser, Keycloak Admin client
+├── auth            # authentication'ın tamamı: SecurityFilterChain, UserDetailsService, token üretimi, refresh token
 ├── user
 ├── workspace
 ├── project
@@ -296,40 +298,36 @@ Bu doküman SQL migration çözümünü vermez.
 
 ### 7.1 `users`
 
-Kimlik (parola, login, token) Keycloak'tadır. `users` tablosu yerel profil ve domain ilişkileri içindir.
-
 | Field | PostgreSQL type | Null | Not |
 |---|---|---:|---|
-| `id` | `uuid` | no | PK, UUID v7 (uygulama üretir; Keycloak id'si değil) |
-| `auth_subject` | `varchar(255)` | no | token'daki `sub` (Keycloak user id); UNIQUE |
-| `email` | `varchar(320)` | no | normalized lowercase; token claim'inden senkronize |
+| `id` | `uuid` | no | PK, UUID v7 |
+| `email` | `varchar(320)` | no | normalized lowercase |
 | `display_name` | `varchar(100)` | no | user-visible name |
+| `password_hash` | `varchar(255)` | no* | Security phase'inde eklenir |
 | `status` | `varchar` | no | `ACTIVE`, `DEACTIVATED` |
 | `created_at` | `timestamptz` | no | |
 | `updated_at` | `timestamptz` | no | |
 
+`password_hash`, Security phase öncesi schema'da bulunmak zorunda değildir; eklendiği migration'dan sonra target modelde NOT NULL olur.
+
 Constraints:
 - PK: `id`
-- `auth_subject` UNIQUE
 - `email` globally UNIQUE
 - persisted `email` lowercase-normalized olmalıdır
 - `display_name` blank olamaz
 - `status` yalnız `ACTIVE` / `DEACTIVATED`
-- parola hiçbir biçimde uygulama DB'sinde tutulmaz
-
-Provisioning:
-- Kullanıcı Keycloak'ta kayıt olur; uygulamaya ilk authenticated isteğinde yerel satırı oluşturulur (just-in-time)
-- Sonraki isteklerde `email` claim'i değişmişse yerel kopya güncellenir
-- Yerel `id` ile Keycloak `sub`'ı ayrı tutulur: domain kimlik sağlayıcıya bağlanmaz, sağlayıcı değişirse yalnız eşleme değişir
+- plaintext password hiçbir zaman persist edilmez
 
 Lifecycle:
 - User hard-delete edilmez
-- Account deactivation `status = DEACTIVATED` + Keycloak'ta kullanıcının disable edilmesi ve session'larının kapatılması
-- DEACTIVATED kullanıcının elinde hâlâ geçerli bir access token olsa bile istekleri reddedilir (eşleme adımında status kontrolü)
+- Account deactivation `status = DEACTIVATED`
+- deactivated user login/refresh yapamaz
+- account deactivation aktif refresh-token family'lerini revoke eder
 
 Relationships:
 - User → WorkspaceMember: 1:N
 - User → TodoAssignee: 1:N
+- User → RefreshToken: 1:N
 
 `created_by_user_id`, `added_by_user_id`, `assigned_by_user_id` gibi audit amaçlı alanlar JPA object graph'ını gereksiz büyütmemek için scalar UUID olarak tutulabilir; DB FK yine `users.id`'ye gider.
 
@@ -579,9 +577,54 @@ Membership delete consequence:
 - DB FK bu unutulursa delete'i engeller
 - sessiz `ON DELETE CASCADE` varsayılan değildir
 
-### 7.9 `refresh_tokens` — kaldırıldı (2026-10-24)
+### 7.9 `refresh_tokens`
 
-Refresh token'ları Keycloak yönetir. V3 ile oluşturulan tablo, Keycloak eşleme adımının (ROADMAP K3) migration'ında drop edilir.
+Security phase'inde eklenir. Her rotation yeni row üretir.
+
+| Field | Type | Null |
+|---|---|---:|
+| `id` | `uuid` | no |
+| `family_id` | `uuid` | no |
+| `user_id` | `uuid` | no |
+| `token_hash` | `varchar(64)` | no |
+| `expires_at` | `timestamptz` | no |
+| `used_at` | `timestamptz` | yes |
+| `revoked_at` | `timestamptz` | yes |
+| `created_at` | `timestamptz` | no |
+
+Constraints:
+- PK
+- user FK
+- token_hash UNIQUE
+- expiry created_at'tan sonra olmalı
+
+Security behavior:
+```text
+random opaque refresh token
+→ SHA-256
+→ token_hash persist
+```
+
+Refresh:
+```text
+valid unused token
+→ mark used
+→ create successor in same family
+→ return successor
+```
+
+Used token tekrar sunulursa:
+```text
+reuse detected
+→ family compromised
+→ active tokens in family revoke
+```
+
+- raw refresh token DB'de tutulmaz
+- logout current family/session'ı revoke eder
+- account deactivation user'ın aktif refresh token'larını revoke eder
+- mekanik `@Version` zorunlu değildir; correctness transaction + conditional update/query ile tasarlanır
+- token'lar arası halef bağlantısı (`replaced_by_token_id`) tutulmaz: katı reuse detection için `used_at` + `family_id` yeterli (karar 2026-10-15, §10). Grace window'a geçilirse bu karar yeniden açılır.
 
 ## 8. Relationship summary
 
@@ -598,6 +641,8 @@ Project 1 ───── N Todo
 Todo 1 ───── N TodoTag N ───── 1 Tag
 
 Todo 1 ───── N TodoAssignee N ───── 1 User
+
+User 1 ───── N RefreshToken
 ```
 
 Workspace bütün workspace-scoped sorguların isolation boundary'sidir.
@@ -639,45 +684,57 @@ Query-level scoping tercih edilir: resource lookup mümkün olduğunda `resource
 
 ## 10. Authentication / Security
 
-**Karar (2026-10-24): kimlik yönetimi Keycloak'tadır.** Daha önce uygulamada yazılan register / login / JWT üretimi /
-refresh token rotation / login rate limit kaldırılır. Gerekçe: production'da kimlik yönetimini kendin yazmak her açığı
-kendin kapatmayı gerektirir; Keycloak bunları (MFA, sosyal login, brute force, rotation) hazır ve denetlenmiş sunar.
-Öğrenme hedefi kimlik kodunu yazmaktan, OIDC'yi ve bir kimlik sağlayıcıyı işletmeyi anlamaya kayar.
+**Karar (2026-10-25): authentication uygulamada, Spring Security ile yazılır.** 2026-10-24'te kimlik Keycloak'a
+devredilmiş (spec v4), local kurulum ve resource server doğrulaması yapılmıştı (ROADMAP K1–K2). Onat'ın kararıyla geri
+dönüldü: projenin öğrenme hedefi Spring Security'nin içi (filter chain, `AuthenticationManager`, JWT imzalama, refresh
+rotation); Keycloak bunları kara kutuya koyuyor. Keycloak denemesinden kalan kavramlar (`kid`, `iss` / `aud` doğrulaması,
+key rotation) kendi token'larımızda uygulanır.
 
-```text
-istemci ──(1) authorization code + PKCE──▶ Keycloak (login sayfası, kayıt, parola, MFA, brute force)
-istemci ◀─(2) access token + refresh token──
-istemci ──(3) Authorization: Bearer <access token>──▶ DeepToDo API (Resource Server)
-                                                       │ imzayı Keycloak'ın JWKS'i ile doğrular (iss, exp, aud)
-                                                       │ sub → yerel users satırı (yoksa oluşturur)
-                                                       ▼ workspace yetkisi DB'den (§9)
-```
+Auth kodu sıfırdan, küçük adımlarla yeniden kurulur (ROADMAP R). Önceki implementasyon (`679ece5`) yalnız referanstır.
 
-### Keycloak
-- Tek realm: `deeptodo`. Realm yapılandırması export dosyası olarak repoda versiyonlanır; local'de açılışta import edilir
-- Keycloak kendi database'ini kullanır (aynı PostgreSQL sunucusunda ayrı database); uygulama o database'e dokunmaz
-- Client'lar: API'nin audience'ı (`deeptodo-api`); kullanıcı tarafı public client (PKCE); Admin API için service account client.
-  Local'e özel test client'ı direct access grant'e (curl ile token almak için) izin verebilir; production'da kapalı
-- Kayıt: Keycloak'ın self-registration'ı. Register otomatik workspace oluşturmaz
-- Brute force detection, password policy, token ömürleri, refresh token rotation / reuse: realm ayarı
-
-### Resource Server
-- Spring Security'nin yerleşik JWT desteği: `issuer-uri` ile discovery, JWKS ile imza doğrulaması, `exp` / `iss` / `aud` kontrolü
-- Özel JWT filtresi yazılmaz
-- Dinamik workspace üyeliği / yetkisi JWT içine gömülmez; Keycloak rolleri workspace yetkisi için kullanılmaz (§9)
-- Session stateless; CSRF kapalı (cookie ile kimlik taşınmıyor, yalnız `Authorization` header'ı)
-
-### Yerel kullanıcı
-- `sub` → `users.auth_subject` eşlemesi her authenticated istekte yapılır (§7.1)
-- Domain kodu yerel user id'yi kullanır; Keycloak id'si `auth` paketinin dışına çıkmaz
+### Register
+- yalnız User oluşturur
+- automatic workspace oluşturmaz
 
 ### Workspace creation
 Authenticated user workspace oluşturduğunda Workspace + OWNER WorkspaceMember aynı transaction'da oluşur.
 
-### Hesap kapatma
-- Yerel `status = DEACTIVATED` + Keycloak Admin API ile disable ve logout
-- Admin API çağrısı DB transaction'ının dışında yapılır. İki sistem arasında atomiklik yoktur (dual-write);
-  bu önce bilinçli olarak kabul edilir, Kafka öğrenme modülünde (§2.1) transactional outbox ile çözülür
+### Login
+- normalized email
+- password hash verification
+- ACTIVE user requirement
+- brute-force koruması: login denemeleri rate limit ile sınırlanır
+
+Gerekçe: uygulama public HTTPS üzerinden internete açılır; sınırsız deneme kabul eden bir login endpoint'i parola tahmini saldırısına açıktır. İlk uygulama in-memory'dir (tek instance). Redis öğrenme modülünde (§2.1) sayaçlar Redis'e taşınır; böylece birden çok instance aynı sayacı paylaşır.
+
+### Access token
+- short-lived JWT, RS256 (asimetrik: private key yalnız imzalar, public key doğrular)
+- header'da `kid`: key rotation sırasında hangi key ile doğrulanacağı token'dan bilinir
+- claim'ler: `iss`, `sub` (yerel user id), `aud` (API'nin adı), `iat`, `exp`, `jti`
+- doğrulamada `iss`, `aud`, `exp` kontrol edilir
+- key'ler repoda değil; local'de `secrets/` (gitignore), production'da env / secret
+- response body ile client'a döner
+- API request'te `Authorization: Bearer`
+- dynamic workspace membership/permission state JWT içine gömülmez
+- modern Spring Security built-in JWT Resource Server support tercih edilir
+- custom JWT validation filter varsayılan çözüm değildir
+
+### Refresh token
+- opaque random token
+- HttpOnly cookie
+- Secure in production
+- uygun SameSite policy
+- DB'de yalnız hash
+- rotation
+- family
+- reuse detection
+- revoke/logout
+
+Cookie kullanan refresh/logout endpoint'lerinde CSRF kararı bilinçli ele alınır.
+
+**Karar (2026-10-15) — eşzamanlı refresh: katı reuse detection, grace window yok.** Kullanıcı uygulamayı iki sekmede açıkken iki sekme aynı refresh token'ı neredeyse aynı anda kullanabilir; ikinci istek "kullanılmış token" olarak görülür, aile revoke edilir ve kullanıcı yeniden login olur. Bu yanlış pozitif, basitlik ve güvenlik karşılığında bilinçli olarak kabul edildi.
+
+Refresh token cookie'si: `HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, production'da `Secure`. CSRF koruması kapalı kalır; cookie'li `/refresh` ve `/logout` cross-site isteklere karşı `SameSite=Strict` ile korunur.
 
 ## 11. API surface — V1 target
 
@@ -685,8 +742,13 @@ Exact payload DTO'ları ilgili feature task'ında tasarlanır.
 
 Bütün application endpoint'leri `/api` öneki altındadır (Actuator hariç).
 
-Auth: uygulamada auth endpoint'i yoktur. Kayıt, login, refresh ve logout Keycloak'ın OIDC endpoint'leridir
-(`/realms/deeptodo/protocol/openid-connect/...`).
+Auth:
+```text
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/refresh
+POST   /api/auth/logout
+```
 
 Current user:
 ```text
@@ -807,6 +869,7 @@ Tag              → hard delete
 WorkspaceMember  → hard delete
 TodoTag          → hard delete
 TodoAssignee     → hard delete
+RefreshToken     → revoke/expire; cleanup later
 ```
 
 Soft-delete her tabloya mekanik uygulanmaz.
@@ -825,13 +888,13 @@ Phase 0–3 boyunca:
 
 Phase 4'te risk bazlı test suite kurulur.
 
-**İstisna — yarış durumuna dayanan invariant'lar:** son OWNER invariant'ı, uygulandığı task'ta otomatik bir concurrency testiyle doğrulanır (refresh rotation Keycloak'a geçtiği için bu listeden çıktı). Gerekçe: bu hatalar yalnız iki istek neredeyse aynı anda geldiğinde ortaya çıkar ve elle tekrar üretilemez. Test Phase 4'e bırakılırsa locking tasarımının doğru olup olmadığı iki faz boyunca bilinmez. İstisna yalnız bu invariant içindir; genel test politikası değişmez.
+**İstisna — yarış durumuna dayanan invariant'lar:** son OWNER invariant'ı ve refresh token rotation/reuse detection, uygulandıkları task'ta birer otomatik concurrency testiyle doğrulanır. Gerekçe: bu hatalar yalnız iki istek neredeyse aynı anda geldiğinde ortaya çıkar ve elle tekrar üretilemez. Test Phase 4'e bırakılırsa locking tasarımının doğru olup olmadığı iki faz boyunca bilinmez. İstisna yalnız bu iki invariant içindir; genel test politikası değişmez.
 
 Test scopes:
-- Unit: status transition, owner invariant helper/business branch, authorization branching
+- Unit: status transition, owner invariant helper/business branch, token rotation logic, authorization branching
 - MVC: request binding, validation, response/error contract
 - Persistence/PostgreSQL Testcontainers: mapping, FK, UNIQUE, CHECK, composite FK, query behavior, optimistic locking
-- Security: 401/403, token doğrulama (issuer / audience / süre), workspace isolation, ownership/assignee rules; seçili bir akış Testcontainers Keycloak ile
+- Security: login, refresh, 401/403, workspace isolation, ownership/assignee rules
 - Integration: selected critical flows only
 
 Her class için test yazılmaz.
@@ -890,11 +953,9 @@ SSH
 → Compose
 → reverse proxy
 → HTTPS
-→ Spring Boot + Keycloak
+→ Spring Boot
 → PostgreSQL
 ```
-
-Keycloak production modunda çalışır (`hostname`, reverse proxy header'ları, admin console'un public olmaması).
 
 PaaS kullanılırsa aynı artifact/runtime/config mental modeli korunur.
 
@@ -952,16 +1013,20 @@ Vertical slices:
 
 ### Phase 3 — Security
 
-Karar (2026-10-24): authentication Keycloak'a devredildi. Önceden yazılan kendi auth kodu (password, register, login,
-JWT üretimi, refresh token, rate limit) kaldırılır.
+Karar (2026-10-25): Keycloak denemesinden sonra auth sıfırdan yeniden kurulur. Sıra (ROADMAP R):
 
-1. Keycloak local kurulum + realm export
-2. Resource Server: issuer, JWKS, audience
-3. Yerel kullanıcı eşleme (just-in-time provisioning)
-4. Hesap: me endpoint'leri + deactivation (Keycloak Admin API)
-5. Keycloak güvenlik ayarları (brute force, password policy, token ömürleri, rotation)
-6. Workspace / resource authorization (her feature ile)
-7. CSRF / CORS / session-policy kararları
+1. Spring Security'nin varsayılan davranışı → kendi `SecurityFilterChain` (stateless, CSRF kararı, 401 ProblemDetail)
+2. password field / PasswordEncoder + register
+3. login/authentication pipeline (`AuthenticationManager`, `DaoAuthenticationProvider`, `UserDetailsService`)
+4. JWT access token (RS256, `kid`)
+5. Resource Server validation (`iss`, `aud`, `exp`) + current user
+6. key rotation
+7. refresh_tokens (V3 tablosu zaten var) + cookie
+8. rotation (+ concurrency testi, bkz. §15 istisnası)
+9. reuse detection (katı; grace window yok)
+10. logout / hesap kapatma + token revoke
+11. login brute-force koruması (in-memory rate limit)
+12. workspace/resource authorization (her feature ile)
 
 ### Phase 4 — Testing + Production Polish + Deployment
 
@@ -997,7 +1062,7 @@ V1 public deploy ile kapanır.
 ### Phase 5 — Redis / Kafka öğrenme modülleri
 
 §2.1'deki use-case'ler, her biri ayrı küçük PR olarak. Sıra ve Phase 1–4'e göre zamanlaması Onat'ın kararıdır ve STATUS'a yazılır.
-Önerilen sıra: Redis kullanıcı eşleme cache'i → Redis API rate limit → outbox tablosu + relay → `UserDeactivated` → (Todo'dan sonra) `WorkspaceMemberRemoved`.
+Önerilen sıra: Redis rate limit → access token denylist → outbox tablosu + relay → `UserDeactivated` → (Todo'dan sonra) `WorkspaceMemberRemoved`.
 
 ## 19. Task sizing
 
@@ -1037,7 +1102,6 @@ Bir feature tamamlandığında, mevcut phase izin verdiği ölçüde:
 ## 21. Scope-control rules
 
 - Redis/Kafka yalnız §2.1'deki use-case'lerde kullanılır; "production gibi dursun" diye başka yere eklenmez
-- Kimlik Keycloak'tadır; uygulamaya yeniden parola / token / refresh kodu eklenmez
 - microservice'e bölünmez
 - generic framework yazılmaz
 - design pattern adı göstermek için pattern eklenmez

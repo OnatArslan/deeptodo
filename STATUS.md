@@ -6,23 +6,19 @@
 
 ## Last updated
 
-2026-10-24
+2026-10-25
 
 ## Current phase
 
-**Keycloak'a geçiş (ROADMAP A4 → K1–K5)**
+**Phase 3 — Authentication'ı sıfırdan yeniden kurma (ROADMAP A4 → R1–R11)**
 
-Karar (2026-10-24): kimlik yönetimi Keycloak'a devredildi (spec v4 §10). Uygulamada yazılmış register / login / JWT üretimi / refresh token / rate limit kodu A4'te kaldırılır; uygulama yalnız OAuth2 Resource Server olur.
+Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authentication uygulamada, Spring Security ile, küçük adımlarla sıfırdan kurulur (spec v5 §10). Gerekçe: öğrenme hedefi Spring Security'nin içi.
 
 ## Active task
 
-_None._ Sıradaki: **K3** — yerel kullanıcı eşleme (`sub` → `users`, just-in-time provisioning, migration). ⚠️ Local DB volume sıfırlaması gerekebilir.
+_None._ Sıradaki: **A4** — auth sıfırlama (Keycloak + `auth` paketi + security dependency'leri kaldırılır).
 
-Ara durum (K2 sonrası, K3'e kadar): Keycloak token'ı imza + `iss` + `exp` + `aud` ile doğrulanıyor. `/api/users/me` 500 döner çünkü `sub` henüz yerel kullanıcıya eşlenmiyor (K3).
-
-Not: DT-003'te yazılan ve elle doğrulanan refresh token akışı (opaque token, SHA-256 hash, rotation, katı reuse detection) git geçmişinde duruyor (`679ece5`). K5'te Keycloak'ın aynı işi nasıl yaptığıyla karşılaştırılacak.
-
-Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspace + membership + yetki kuralları, V4 `workspace_members`. ROADMAP K4 / W1 / W2'de Keycloak'a uyarlanarak yerleşir.
+Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
 ## Phase status
 
@@ -31,12 +27,12 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 | Phase 0 — Bootstrap | ✅ Done |
 | Phase 1 — Todo Core | ⏸ Paused (users schema done, workspace entity pending) |
 | Phase 2 — Workspace / Collaboration / Querying | ⬜ |
-| Phase 3 — Security | 🔄 Keycloak'a geçiş (kendi auth kodu kaldırılıyor) |
+| Phase 3 — Security | 🔄 Authentication sıfırdan yeniden kuruluyor (R1–R11) |
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
 
-### K2 — Resource server sıkılaştırma ✅ (2026-10-25)
+### K2 — Resource server sıkılaştırma ✅ (2026-10-25) — bırakılan Keycloak yolu, A4'te kaldırılır
 
 - Realm: `deeptodo-api` client'ı (token istemez; yalnız audience adı) + `deeptodo-web` / `deeptodo-dev`'de `oidc-audience-mapper` → access token'da `aud: deeptodo-api`
 - `application.yaml`: `spring.security.oauth2.resourceserver.jwt.audiences: deeptodo-api` (`KEYCLOAK_AUDIENCE`) → Boot, varsayılan validator'lara (exp/nbf, iss) audience validator'ı ekler
@@ -44,7 +40,7 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 - Manual smoke ✅: `aud`'suz token → 401 `The aud claim is not valid`; realm güncellendikten sonra 404 (geçti); key'ler alındıktan sonra Keycloak kapalı → geçerli token geçer; Keycloak kapalıyken tanınmayan `kid` → 503 + `Retry-After`; uygulama Keycloak'ı hiç görmeden kapalıysa → 500, Keycloak gelince kendiliğinden düzelir (TD-13)
 - Key rotation ✅: yeni key provider (priority 200) → yeni `kid`'li token, çalışan uygulama yeniden başlatılmadan kabul etti (tanınmayan kid → JWKS yeniden indirildi); eski key'li token da geçerli. Silinen key'in token'ı JWKS cache süresi boyunca kabul edilmeye devam etti (beklenen; key iptali anlık değil)
 
-### K1 — Keycloak local kurulum ✅ (2026-10-24)
+### K1 — Keycloak local kurulum ✅ (2026-10-24) — bırakılan Keycloak yolu, A4'te kaldırılır
 
 - `compose.yaml`: `keycloak` servisi (`quay.io/keycloak/keycloak:26.8.1`, `start-dev --import-realm`, host `127.0.0.1:8180`, yönetim portu 9000'de health, bash `/dev/tcp` healthcheck, `depends_on: postgres healthy`)
 - Keycloak'ın verisi aynı PostgreSQL sunucusunda ayrı `keycloak` database'i / kullanıcısı: `docker/postgres-init/01-create-keycloak-db.sql` (yalnız boş volume'de çalışır)
@@ -58,7 +54,7 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 - Elle kurulan `Map` yerine Spring'in `ProblemDetail` tipi; serialize işi Boot'un `JsonMapper`'ında. Filter zinciri 401 / 403 gövdesi artık MVC tarafındaki ProblemDetail cevaplarıyla aynı şekilde (aynı alanlar, varsayılan `about:blank` type yazılmıyor)
 - Manual smoke ✅: token'sız istek → 401 + `WWW-Authenticate` + `application/problem+json`
 
-### A4 — Kendi authentication kodunu kaldır ✅ (2026-10-24)
+### (Keycloak geçişi) Kendi authentication kodunu kaldır ✅ (2026-10-24)
 
 - Silindi: `AuthService`, `AuthTokens`, `AppUserDetails(Service)`, `auth/jwt` (token üretimi, RSA key yükleme, decoder), `auth/refresh` (rotation, reuse), `AuthController` + DTO'lar, `AuthExceptionHandler`, `RefreshTokenCookies`, `EmailAlreadyExist` / `InvalidRefreshToken` exception'ları; `SecurityConfig`'ten `PasswordEncoder`, `AuthenticationManager`, `BearerTokenResolver`, özel `JwtAuthenticationConverter`
 - `application.yaml`: `deeptodo.security.*` (JWT key yolları, refresh cookie) yerine `spring.security.oauth2.resourceserver.jwt.issuer-uri` (`KEYCLOAK_ISSUER_URI`, varsayılan `http://localhost:8180/realms/deeptodo`)
@@ -99,7 +95,7 @@ Commit edilmemiş iş (çalışma dizininde): `users/me` endpoint'leri, workspac
 |---|---|
 | V1 | `users` (incl. `password_hash varchar(255)`), `workspaces`; named PKs, no time defaults, `~ '\S'` blank checks |
 | V2 | `users.version` kolonu kaldırıldı (spec §21; `@Version` yalnız todos / workspace_members'ta) |
-| V3 | `refresh_tokens` (spec §7.9, halef bağlantısı yok) + `user_id`, `family_id` index'leri — Keycloak'a geçişle kullanılmıyor, K3'te drop |
+| V3 | `refresh_tokens` (spec §7.9, halef bağlantısı yok) + `user_id`, `family_id` index'leri — R7–R9 yeniden kurulumunda kullanılır |
 
 ## Current schema
 
@@ -125,16 +121,13 @@ user/web          UserController (GET /api/users/me — K3/K4'te yeniden yazıla
 | ID | Debt | Planned phase |
 |---|---|---|
 | TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
-| TD-13 | Uygulama Keycloak'a hiç ulaşamadan istek alırsa 500 (`JwtDecoderInitializationException` `JwtException` değil, failure handler'a ulaşmıyor). Keycloak gelince kendiliğinden düzelir; production'da `depends_on: keycloak healthy` ile önlenir. Tam çözüm Boot'un decoder'ını sarmalamak | F2 |
 | TD-12 | Validation 400 cevabı hangi alanın hatalı olduğunu söylemiyor (`detail: Invalid request content.`); beklenmeyen 500'ler hâlâ Boot'un `/error` JSON'u (ProblemDetail değil) | Phase 4 (E2 ile) |
-
-Keycloak kararıyla kapanan borçlar: TD-4 (login rate limit → Keycloak brute force detection), TD-8'in refresh rotation kısmı (son OWNER testi W3'te), TD-9 (refresh cookie Secure → cookie kalmadı), TD-10 (rate limit IP / forward headers → E4'te genel olarak ele alınır).
 
 ## Current learning focus
 
-- OAuth2 / OIDC: authorization code + PKCE, token anatomisi, discovery, JWKS
-- Keycloak: realm / client / user modeli, realm export, Admin API
-- Resource Server: issuer / audience doğrulaması, `sub` → yerel kullanıcı eşleme
+- Spring Security 7 içeriden: filter chain, `AuthenticationManager` / `DaoAuthenticationProvider`, `SecurityContext`
+- JWT (RS256, `kid`, `iss` / `aud` / `exp`) ve key rotation
+- Refresh token rotation, reuse detection, transaction sınırları ve concurrency
 
 ## Locked scope decisions
 
@@ -151,6 +144,6 @@ Do not casually reopen these during implementation:
 - register does not auto-create Workspace
 - tests mainly Phase 4
 - no AuditLog in v1
-- identity in Keycloak (no own password / token / refresh code)
+- authentication written in-app with Spring Security (Keycloak tried and dropped 2026-10-25)
 - Redis / Kafka only for spec §2.1 learning modules; no microservices
 - final v1 includes Docker + public HTTPS deployment
