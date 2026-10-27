@@ -1,6 +1,6 @@
 package com.onatarslan.deeptodo.auth.web;
 
-import com.onatarslan.deeptodo.auth.AuthService
+import com.onatarslan.deeptodo.auth.AuthService;
 import com.onatarslan.deeptodo.auth.web.dto.RegisterRequest;
 import com.onatarslan.deeptodo.auth.web.dto.RegisterResponse;
 import com.onatarslan.deeptodo.user.domain.User;

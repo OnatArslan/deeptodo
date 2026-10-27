@@ -64,6 +64,8 @@ Onat okur, sorar ─▶ istenen düzeltmeler aynı adıma (hâlâ commit edilmem
 "devam"  ─▶ döngü başa döner.
 ```
 
+- Commit'ten hemen önce yeniden derlenir (`./mvnw -q -DskipTests compile`): Onat dosyaları okurken IDE'de yanlışlıkla
+  değiştirmiş olabilir. Onat'ın bilinçli değişiklikleri de aynı commit'e girer; commit mesajında belirtilir.
 - Onat "commitle" derse anlatımdan sonra beklemeden commit + push edilir.
 - Doğrulama geçmediyse adım öyle bırakılmaz: sorun chat'te açıkça söylenir, düzeltilir ya da adım geri alınır.
 - Commit edilmiş geçmiş yeniden yazılmaz (`--amend` / rebase / force push yok); sonradan düzeltme yeni commit'tir.

@@ -17,7 +17,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    // Bilerek @Transactional değil: bcrypt kasıtlı olarak yavaştır (~100 ms). Hash'leme transaction'ın dışında yapılır,
+    // Bilerek @Transactional değil: parola hash'leme kasıtlı olarak yavaştır. Hash'leme transaction'ın dışında yapılır,
     // DB bağlantısı yalnız UserService.register'ın kısa INSERT'i boyunca tutulur.
     public User register(String email, String rawPassword, String displayName) {
         String passwordHash = passwordEncoder.encode(rawPassword);

@@ -30,8 +30,10 @@ Commit edilmemiş eski user / workspace kodu `wip/user-workspace-reference` bran
 
 - [x] **R1** (82087a7) Spring Security'yi ekle: dependency'nin tek başına yaptığı (her şey kilitli, üretilmiş parola), sonra kendi `SecurityFilterChain`'imiz:
   stateless, CSRF kararı, health açık, 401 / 403 ProblemDetail (`SecurityProblemHandler`). Filter zincirini TRACE log ile gözlemleme
-- [x] **R2** Parola + register: `PasswordEncoder` (delegating, bcrypt), `User.passwordHash`, `POST /api/auth/register` (email normalize, tekil → 409)
-- [ ] **R3** Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; timing attack koruması; yanlış parola / bilinmeyen email aynı 401
+- [x] **R2** (2961fd0) Parola + register: `PasswordEncoder` (delegating, bcrypt), `User.passwordHash`, `POST /api/auth/register` (email normalize, tekil → 409)
+- [x] **R2b** Argon2: yeni hash'ler argon2id (OWASP: 19 MiB, 2 tur, 1 hat), eski `{bcrypt}` hash'ler doğrulanabilir kalır; BouncyCastle dependency'si
+- [ ] **R3** Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; timing attack koruması; yanlış parola / bilinmeyen email aynı 401;
+  login'de eski bcrypt hash'in argon2'ye yükseltilmesi (`UserDetailsPasswordService`)
 - [ ] **R4** Access token: RS256 key çifti (`secrets/`), `JwtEncoder`, claim'ler (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`), header'da `kid`; login token döner
 - [ ] **R5** Resource server: public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `CurrentUser`, `GET /api/users/me`, DEACTIVATED kullanıcının reddi
 - [ ] **R6** Key rotation: birden çok key, `kid` ile seçim, eski key'le imzalı token'ların geçiş süresi

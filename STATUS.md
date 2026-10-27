@@ -18,7 +18,7 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 _None._ Sıradaki: **R3** — login (`AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`).
 
-Ara durum (R2 sonrası): kayıt olunabiliyor (`POST /api/auth/register`), ama henüz login yok; health ve register dışındaki her istek 401. Log'da hâlâ "Using generated security password" satırı çıkıyor: Boot, uygulamada `UserDetailsService` olmadığı için yedek bir in-memory kullanıcı oluşturuyor; zincirimiz onu kullanmıyor (Basic / form login kapalı). R3'te kendi `UserDetailsService`'imiz gelince kalkar.
+Ara durum (R2b sonrası): kayıt olunabiliyor (`POST /api/auth/register`, argon2 hash), ama henüz login yok; health ve register dışındaki her istek 401. Log'da hâlâ "Using generated security password" satırı çıkıyor: Boot, uygulamada `UserDetailsService` olmadığı için yedek bir in-memory kullanıcı oluşturuyor; zincirimiz onu kullanmıyor (Basic / form login kapalı). R3'te kendi `UserDetailsService`'imiz gelince kalkar.
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -33,6 +33,16 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R2b — Argon2 ✅ (2026-10-27)
+
+- `PasswordEncoder`: `DelegatingPasswordEncoder("argon2", {argon2, bcrypt})`; `PasswordEncoderFactories` yerine yalnız kullanılan iki algoritma (fabrika `{noop}`, `{MD4}` gibi güvensiz id'leri de tanır)
+- Argon2id parametreleri OWASP'ın önerdiği en düşük ayar: salt 16 byte, hash 32 byte, bellek 19 MiB, 2 tur, 1 paralel hat → `{argon2}$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>` (105 karakter)
+- `org.bouncycastle:bcprov-jdk18on:1.86` (runtime): Spring'in `Argon2PasswordEncoder`'ı hesaplamayı BouncyCastle ile yapar
+- `RegisterRequest`: 72 byte kontrolü kaldırıldı (argon2'de bcrypt'in 72 byte sınırı yok), parola 8–128 karakter
+- R2 commit'indeki (`2961fd0`) `AuthController` import satırının eksik `;`'i düzeltildi (doğrulamadan sonra, commit'ten önce dosyada değişmişti); `CLAUDE.md`'ye "commit'ten hemen önce yeniden derle" kuralı
+- Manual smoke ✅: kayıt 201, hash `{argon2}$argon2id$...`; ısınmadan sonra tek kayıt ~0.06 s, 20 eşzamanlı kayıtta 0.15 / 0.17 / 0.18 s (en hızlı / medyan / en yavaş); DB'de eski 11 `{bcrypt}` hash duruyor (R3'te login'de yükseltilecek)
+- Ölçülemeyen: eşzamanlı hash'lemenin bellek etkisi (`/actuator/metrics` security zincirinde kapalı); hesapla her hash ~19 MiB geçici bellek
 
 ### R2 — Parola + register ✅ (2026-10-25)
 
@@ -132,7 +142,7 @@ common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
 auth/             AuthService (register)
-auth/config       SecurityConfig (filter chain, PasswordEncoder)
+auth/config       SecurityConfig (filter chain, PasswordEncoder: argon2 + bcrypt)
 auth/web          AuthController (POST /api/auth/register), SecurityProblemHandler, dto/RegisterRequest, dto/RegisterResponse
 user/             UserService (register)
 user/domain       User (email, displayName, passwordHash, status; normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)

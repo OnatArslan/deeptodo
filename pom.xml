@@ -61,6 +61,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <!-- Argon2PasswordEncoder hesaplamayı BouncyCastle ile yapar; Spring Security bunu kendisi getirmez.
+             Kodda BouncyCastle sınıfı kullanmadığımız için yalnız runtime'da gerekli. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.86</version>
+            <scope>runtime</scope>
+        </dependency>
     </dependencies>
 
     <build>

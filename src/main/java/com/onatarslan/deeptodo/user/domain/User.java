@@ -16,7 +16,8 @@ public class User extends AuditableEntity {
     @Column(name = "display_name", nullable = false)
     private String displayName;
 
-    // Parolanın kendisi değil, PasswordEncoder'ın ürettiği hash ("{bcrypt}$2a$10$..."). Parola hiçbir yerde saklanmaz.
+    // Parolanın kendisi değil, PasswordEncoder'ın ürettiği hash ("{argon2}$argon2id$..." ya da eski "{bcrypt}$2a$10$...").
+    // Parola hiçbir yerde saklanmaz.
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 

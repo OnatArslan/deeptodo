@@ -8,9 +8,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.util.Map;
 
 // Kendi SecurityFilterChain bean'imiz tanımlanınca Spring Boot'un varsayılan zinciri (form login, Basic auth,
 // üretilmiş parola) devre dışı kalır. Zincirde yalnız burada istediğimiz davranışlar olur.
@@ -56,10 +60,30 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // Delegating encoder: hash'in başına algoritma id'si yazar ("{bcrypt}$2a$10$..."). Varsayılan algoritma ileride
-    // değişirse eski hash'ler hâlâ doğrulanabilir; hangi algoritmayla üretildikleri hash'in kendisinde yazılı.
+    // Delegating encoder: yeni hash'i "argon2" ile üretir ve başına id'sini yazar ("{argon2}$argon2id$..."),
+    // doğrularken hash'in başındaki id'ye göre encoder seçer. R2'de üretilmiş "{bcrypt}" hash'ler bu yüzden geçerli kalır;
+    // R3'te login sırasında argon2'ye yükseltilir.
+    //
+    // PasswordEncoderFactories yerine haritayı kendimiz kuruyoruz: yalnız gerçekten kullandığımız iki algoritma.
+    // Fabrika {noop} (düz metin), {MD4}, {sha256} gibi eski / güvensiz id'leri de tanır; DB'ye öyle bir değer
+    // sızarsa (ör. elle yazılmış bir satır) kabul edilirdi.
     @Bean
     PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        Map<String, PasswordEncoder> encoders = Map.of(
+                "argon2", argon2(),
+                "bcrypt", new BCryptPasswordEncoder());
+        return new DelegatingPasswordEncoder("argon2", encoders);
+    }
+
+    // Argon2id, OWASP Password Storage Cheat Sheet'in önerdiği en düşük ayar: 19 MiB bellek, 2 tur, 1 paralel hat.
+    // Bellek maliyeti, GPU / ASIC ile paralel kırmayı pahalılaştıran şey; bcrypt'te bu yok (yalnız CPU maliyeti).
+    // Bedeli: her hash'leme sunucuda da 19 MiB ister. Eşzamanlı çok sayıda login belleği zorlar (R11 rate limit).
+    private static Argon2PasswordEncoder argon2() {
+        int saltLength = 16;        // byte
+        int hashLength = 32;        // byte
+        int parallelism = 1;
+        int memoryKib = 19 * 1024;  // 19 MiB
+        int iterations = 2;
+        return new Argon2PasswordEncoder(saltLength, hashLength, parallelism, memoryKib, iterations);
     }
 }
