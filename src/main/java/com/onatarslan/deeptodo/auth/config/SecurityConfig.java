@@ -4,9 +4,12 @@ import com.onatarslan.deeptodo.auth.web.SecurityProblemHandler;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 // Kendi SecurityFilterChain bean'imiz tanımlanınca Spring Boot'un varsayılan zinciri (form login, Basic auth,
@@ -36,6 +39,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Load balancer / container healthcheck'i kimliksiz çağırır.
                         .requestMatchers("/actuator/health").permitAll()
+                        // Kaydolan kişinin henüz kimliği yok; yalnız bu yöntem + yol açık (GET /api/auth/register değil).
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         // Bir hata oluşunca istek /error'a forward edilir ve zincirden tekrar geçer. O aşamada kullanıcı
                         // anonim olabilir; /error'u da korursak asıl hata (ör. 403, 404) kaybolur, istemci 401 görür.
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
@@ -49,5 +54,12 @@ public class SecurityConfig {
                         .authenticationEntryPoint(problemHandler)
                         .accessDeniedHandler(problemHandler));
         return http.build();
+    }
+
+    // Delegating encoder: hash'in başına algoritma id'si yazar ("{bcrypt}$2a$10$..."). Varsayılan algoritma ileride
+    // değişirse eski hash'ler hâlâ doğrulanabilir; hangi algoritmayla üretildikleri hash'in kendisinde yazılı.
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 }

@@ -16,6 +16,10 @@ public class User extends AuditableEntity {
     @Column(name = "display_name", nullable = false)
     private String displayName;
 
+    // Parolanın kendisi değil, PasswordEncoder'ın ürettiği hash ("{bcrypt}$2a$10$..."). Parola hiçbir yerde saklanmaz.
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private UserStatus status;
@@ -25,14 +29,17 @@ public class User extends AuditableEntity {
 
     }
 
-    // users.password_hash kolonu (V1, NOT NULL) DB'de duruyor; alan R2'de (parola + register) entity'ye geri eklenir.
-    // O zamana kadar kullanıcı oluşturan bir akış yok.
-    public User(String email, String displayName) {
+    // Entity hash'i hazır alır; hash'lemeyi bilmez (o auth'un işi). Bu sayede domain, Spring Security'ye bağımlı değil.
+    public User(String email, String displayName, String passwordHash) {
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("display name can not be null or blank");
         }
+        if (passwordHash == null || passwordHash.isBlank()) {
+            throw new IllegalArgumentException("password hash can not be null or blank");
+        }
         this.email = normalizeEmail(email);
         this.displayName = displayName.strip();
+        this.passwordHash = passwordHash;
         this.status = UserStatus.ACTIVE;
     }
 
@@ -51,6 +58,10 @@ public class User extends AuditableEntity {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
     public UserStatus getStatus() {

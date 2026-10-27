@@ -28,9 +28,9 @@ Commit edilmemiş eski user / workspace kodu `wip/user-workspace-reference` bran
 
 ## R — Authentication (spec §10, Phase 3) 🔬
 
-- [x] **R1** Spring Security'yi ekle: dependency'nin tek başına yaptığı (her şey kilitli, üretilmiş parola), sonra kendi `SecurityFilterChain`'imiz:
+- [x] **R1** (82087a7) Spring Security'yi ekle: dependency'nin tek başına yaptığı (her şey kilitli, üretilmiş parola), sonra kendi `SecurityFilterChain`'imiz:
   stateless, CSRF kararı, health açık, 401 / 403 ProblemDetail (`SecurityProblemHandler`). Filter zincirini TRACE log ile gözlemleme
-- [ ] **R2** Parola + register: `PasswordEncoder` (delegating, bcrypt), `User.passwordHash`, `POST /api/auth/register` (email normalize, tekil → 409)
+- [x] **R2** Parola + register: `PasswordEncoder` (delegating, bcrypt), `User.passwordHash`, `POST /api/auth/register` (email normalize, tekil → 409)
 - [ ] **R3** Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; timing attack koruması; yanlış parola / bilinmeyen email aynı 401
 - [ ] **R4** Access token: RS256 key çifti (`secrets/`), `JwtEncoder`, claim'ler (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`), header'da `kid`; login token döner
 - [ ] **R5** Resource server: public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `CurrentUser`, `GET /api/users/me`, DEACTIVATED kullanıcının reddi

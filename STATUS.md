@@ -16,9 +16,9 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **R2** — parola + register.
+_None._ Sıradaki: **R3** — login (`AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`).
 
-Ara durum (R1 sonrası): Spring Security devrede, kendi `SecurityFilterChain`'imizle. Health dışındaki her istek 401 (henüz kimlik doğrulama mekanizması yok). Log'da hâlâ "Using generated security password" satırı çıkıyor: Boot, uygulamada `UserDetailsService` olmadığı için yedek bir in-memory kullanıcı oluşturuyor; zincirimiz onu kullanmıyor (Basic / form login kapalı). R3'te kendi `UserDetailsService`'imiz gelince kalkar.
+Ara durum (R2 sonrası): kayıt olunabiliyor (`POST /api/auth/register`), ama henüz login yok; health ve register dışındaki her istek 401. Log'da hâlâ "Using generated security password" satırı çıkıyor: Boot, uygulamada `UserDetailsService` olmadığı için yedek bir in-memory kullanıcı oluşturuyor; zincirimiz onu kullanmıyor (Basic / form login kapalı). R3'te kendi `UserDetailsService`'imiz gelince kalkar.
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -33,6 +33,17 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R2 — Parola + register ✅ (2026-10-25)
+
+- `User.passwordHash` (V1'deki `password_hash` kolonu), constructor hash'i hazır alır; entity Spring Security'yi bilmez
+- `PasswordEncoder` bean'i: `PasswordEncoderFactories.createDelegatingPasswordEncoder()` → `{bcrypt}$2a$10$<22 karakter salt><31 karakter hash>` (68 karakter)
+- `auth/AuthService.register`: hash'leme transaction'ın dışında (bcrypt ~100 ms), sonra `user/UserService.register`
+- `UserService.register`: email normalize (lowercase) → `existsByEmail` ön kontrolü → `saveAndFlush`; yarışta DB'nin `uq_users_email` ihlali yalnız o constraint adıyla eşleşirse 409'a çevrilir
+- `POST /api/auth/register` → 201 `{id, email, displayName}`; `SecurityConfig`'te yalnız POST + bu yol `permitAll`
+- `RegisterRequest`: `@Email`, parola 8–72 karakter + `@AssertTrue` ile en fazla 72 byte (bcrypt sınırı)
+- Manual smoke ✅: kayıt 201; büyük harfli aynı email 409; aynı parola iki farklı hash (salt); geçersiz email / kısa parola / boş isim 400; 40 karakter / 80 byte parola 400; isim strip ediliyor; `GET /api/auth/register` 401; 10 eşzamanlı aynı email → 1×201 + 9×409 (2'si ön kontrolü geçip DB UNIQUE'e takıldı, log'da SQLState 23505); kayıt ~0.1–0.18 s (bcrypt), validation hatası ~0.003 s
+- Bilinçli: email'deki baştaki / sondaki boşluk `@Email`'e takılır (400), normalize edilmez; register "bu email kayıtlı" bilgisini verir (user enumeration, kayıt akışında yaygın kabul)
 
 ### R1 — Spring Security + kendi SecurityFilterChain ✅ (2026-10-25)
 
@@ -120,9 +131,11 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
-auth/config       SecurityConfig
-auth/web          SecurityProblemHandler
-user/domain       User (email, displayName, status; normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
+auth/             AuthService (register)
+auth/config       SecurityConfig (filter chain, PasswordEncoder)
+auth/web          AuthController (POST /api/auth/register), SecurityProblemHandler, dto/RegisterRequest, dto/RegisterResponse
+user/             UserService (register)
+user/domain       User (email, displayName, passwordHash, status; normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
 ```
 
 ## Known technical debt
