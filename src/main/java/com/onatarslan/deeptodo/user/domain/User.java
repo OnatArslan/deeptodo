@@ -69,5 +69,12 @@ public class User extends AuditableEntity {
         return status;
     }
 
+    public void changePasswordHash(String newPasswordHash) {
+        if (newPasswordHash == null || newPasswordHash.isBlank()) {
+            throw new IllegalArgumentException("password hash can not be null or blank");
+        }
+        this.passwordHash = newPasswordHash;
+    }
+
 
 }

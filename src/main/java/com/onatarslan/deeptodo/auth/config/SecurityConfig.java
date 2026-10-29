@@ -1,10 +1,14 @@
 package com.onatarslan.deeptodo.auth.config;
 
+import com.onatarslan.deeptodo.auth.AppUserDetailsService;
 import com.onatarslan.deeptodo.auth.web.SecurityProblemHandler;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -18,7 +22,8 @@ import java.util.Map;
 
 // Kendi SecurityFilterChain bean'imiz tanımlanınca Spring Boot'un varsayılan zinciri (form login, Basic auth,
 // üretilmiş parola) devre dışı kalır. Zincirde yalnız burada istediğimiz davranışlar olur.
-// Henüz kimlik doğrulama mekanizması yok: korumalı her istek 401 alır. Login R3'te, Bearer token R5'te eklenir.
+// Login (R3) zincirde bir filter değil, sıradan bir endpoint: kimliği o istekte doğrular ama sonraki isteklere
+// taşımaz. Korumalı istekler Bearer token (R5) gelene kadar 401 alır.
 @Configuration
 public class SecurityConfig {
 
@@ -43,8 +48,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Load balancer / container healthcheck'i kimliksiz çağırır.
                         .requestMatchers("/actuator/health").permitAll()
-                        // Kaydolan kişinin henüz kimliği yok; yalnız bu yöntem + yol açık (GET /api/auth/register değil).
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        // Kaydolan / giriş yapan kişinin henüz kimliği yok; yalnız bu yöntem + yol açık (GET değil).
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         // Bir hata oluşunca istek /error'a forward edilir ve zincirden tekrar geçer. O aşamada kullanıcı
                         // anonim olabilir; /error'u da korursak asıl hata (ör. 403, 404) kaybolur, istemci 401 görür.
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
@@ -60,9 +65,24 @@ public class SecurityConfig {
         return http.build();
     }
 
+    // Email + parola doğrulamasının parçaları açıkça kuruluyor (Spring'in otomatik kurduğu global manager'a güvenmek yerine):
+    //   AuthenticationManager (ProviderManager) → token tipini destekleyen provider'a sorar
+    //   DaoAuthenticationProvider → kullanıcıyı yükler, durumunu ve parolayı kontrol eder, gerekirse hash'i yükseltir
+    // Bilinmeyen email'de de saklı bir sahte hash'e karşı parola karşılaştırması yapar: cevap süresi email'in
+    // kayıtlı olup olmadığını ele vermez (timing attack). Kapalı hesapta da parola kontrolü yine çalışır
+    // (alwaysPerformAdditionalChecksOnUser, Security 7'de varsayılan true).
+    @Bean
+    AuthenticationManager authenticationManager(AppUserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        // Verilmezse yükseltme yapılmaz (varsayılanı NOOP); {bcrypt} hash'ler sonsuza kadar bcrypt kalır.
+        provider.setUserDetailsPasswordService(userDetailsService);
+        return new ProviderManager(provider);
+    }
+
     // Delegating encoder: yeni hash'i "argon2" ile üretir ve başına id'sini yazar ("{argon2}$argon2id$..."),
     // doğrularken hash'in başındaki id'ye göre encoder seçer. R2'de üretilmiş "{bcrypt}" hash'ler bu yüzden geçerli kalır;
-    // R3'te login sırasında argon2'ye yükseltilir.
+    // upgradeEncoding() id'si "argon2" olmayan hash için true döner → login'de argon2'ye yükseltilir.
     //
     // PasswordEncoderFactories yerine haritayı kendimiz kuruyoruz: yalnız gerçekten kullandığımız iki algoritma.
     // Fabrika {noop} (düz metin), {MD4}, {sha256} gibi eski / güvensiz id'leri de tanır; DB'ye öyle bir değer

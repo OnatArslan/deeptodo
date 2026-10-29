@@ -1,12 +1,16 @@
 package com.onatarslan.deeptodo.user;
 
 import com.onatarslan.deeptodo.common.error.BusinessRuleViolationException;
+import com.onatarslan.deeptodo.common.error.ResourceNotFoundException;
 import com.onatarslan.deeptodo.user.domain.User;
 import com.onatarslan.deeptodo.user.domain.UserRepository;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+import java.util.UUID;
 
 // user feature'ının dışa açık kapısı (spec §5): başka feature'lar User'a UserRepository ile değil bu servisle ulaşır.
 @Service
@@ -20,9 +24,10 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    // Parola hash'ini çağıran (auth) üretir; burası yalnız "bu email ile kullanıcı oluşturulabilir mi" sorusunu cevaplar.
+    // Register use-case'i auth'ta (AuthService.register); burası yalnız User satırını oluşturur ve
+    // "bu email ile kullanıcı oluşturulabilir mi" sorusunu cevaplar. Parola hash'ini çağıran üretir.
     @Transactional
-    public User register(String email, String displayName, String passwordHash) {
+    public User create(String email, String displayName, String passwordHash) {
         String normalizedEmail = User.normalizeEmail(email);
 
         // Ön kontrol: yaygın durumda (email zaten kayıtlı) anlaşılır bir 409, DB hatası beklemeden.
@@ -42,6 +47,23 @@ public class UserService {
             }
             throw e;
         }
+    }
+
+    // Login'de kayıttaki kuralla aynı normalizasyon: "Alice@X.com" ile kaydolan "alice@x.com" ile de girer.
+    @Transactional(readOnly = true)
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(User.normalizeEmail(email));
+    }
+
+    // Dirty checking: managed entity'nin alanı değişir, commit'te UPDATE çalışır (updated_at'i auditing yazar).
+    // Şu an bu metodu yalnız login'deki hash yükseltmesi çağırır; aynı kullanıcının iki eşzamanlı login'i
+    // ikisi de geçerli iki hash yazar, son yazan kalır. Parola değiştirme eklenirse bu bir lost update olur
+    // (eski parolanın hash'i yeni parolanın üstüne yazılabilir); o zaman koşullu UPDATE gerekir.
+    @Transactional
+    public void changePasswordHash(UUID userId, String newPasswordHash) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("user not found"));
+        user.changePasswordHash(newPasswordHash);
     }
 
     private static BusinessRuleViolationException emailAlreadyInUse() {

@@ -1,6 +1,9 @@
 package com.onatarslan.deeptodo.auth.web;
 
+import com.onatarslan.deeptodo.auth.AppUserDetails;
 import com.onatarslan.deeptodo.auth.AuthService;
+import com.onatarslan.deeptodo.auth.web.dto.LoginRequest;
+import com.onatarslan.deeptodo.auth.web.dto.LoginResponse;
 import com.onatarslan.deeptodo.auth.web.dto.RegisterRequest;
 import com.onatarslan.deeptodo.auth.web.dto.RegisterResponse;
 import com.onatarslan.deeptodo.user.domain.User;
@@ -28,5 +31,12 @@ public class AuthController {
     public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         User user = authService.register(request.email(), request.password(), request.displayName());
         return new RegisterResponse(user.getId(), user.getEmail(), user.getDisplayName());
+    }
+
+    // 200: kimlik doğrulandı. Henüz token yok (R4); bu cevap sonraki isteklerde kimlik olarak kullanılamaz.
+    @PostMapping("/login")
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+        AppUserDetails user = authService.login(request.email(), request.password());
+        return new LoginResponse(user.id(), user.email());
     }
 }

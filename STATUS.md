@@ -6,7 +6,7 @@
 
 ## Last updated
 
-2026-10-25
+2026-10-28
 
 ## Current phase
 
@@ -16,9 +16,9 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **R3** — login (`AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`).
+_None._ Sıradaki: **R4** — access token (RS256 key çifti `secrets/`'ta, `JwtEncoder`, claim'ler, `kid`); login token döner.
 
-Ara durum (R2b sonrası): kayıt olunabiliyor (`POST /api/auth/register`, argon2 hash), ama henüz login yok; health ve register dışındaki her istek 401. Log'da hâlâ "Using generated security password" satırı çıkıyor: Boot, uygulamada `UserDetailsService` olmadığı için yedek bir in-memory kullanıcı oluşturuyor; zincirimiz onu kullanmıyor (Basic / form login kapalı). R3'te kendi `UserDetailsService`'imiz gelince kalkar.
+Ara durum (R3 sonrası): kayıt ve login çalışıyor, ama login kimliği sonraki isteklere taşımıyor (token yok); health, register ve login dışındaki her istek 401.
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -33,6 +33,19 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R3 — Login ✅ (2026-10-28)
+
+- `POST /api/auth/login` → 200 `{userId, email}` (token R4'te); `AuthService.login` → `AuthenticationManager` (`ProviderManager`) → `DaoAuthenticationProvider` → `AppUserDetailsService` → `UserService.findByEmail` (normalize)
+- `AppUserDetails` (record, `UserDetails`): id, email, hash, `isEnabled = ACTIVE`; rol yok (authority listesi boş; Spring başarıda `FACTOR_PASSWORD` ekler)
+- Hash yükseltme: `AppUserDetailsService` aynı zamanda `UserDetailsPasswordService`; `{bcrypt}` hash'li kullanıcı doğru parolayla girince hash `{argon2}` olur (`UserService.changePasswordHash`, dirty checking)
+- Bilinmeyen email / yanlış parola / DEACTIVATED hesap → aynı 401 ProblemDetail `Invalid email or password` (`auth/web/AuthExceptionHandler`, `@RestControllerAdvice(assignableTypes = AuthController.class)`; spec §5 gereği `common`'da değil); sebep yalnız DEBUG log'da
+- Kullanıcı yüklenirken çıkan altyapı hatası (`InternalAuthenticationServiceException`) açılıp asıl exception fırlatılır: DB çökmesi 401 değil 500
+- Boot'un yedek in-memory kullanıcısı ("Using generated security password") artık oluşturulmuyor (`UserDetailsService` bean'i var)
+- Review düzeltmeleri: `AuthenticatedUser` → `AppUserDetails` (yüklendiği anda henüz doğrulanmamış bir aday; eski isim yanıltıcıydı), `AuthUserDetailsService` → `AppUserDetailsService`; `UserService.register` → `UserService.create` (register use-case'i `AuthService`'te, user feature yalnız satırı oluşturur); login 401 eşlemesi `GlobalExceptionHandler`'dan `auth/web/AuthExceptionHandler`'a taşındı
+- Manual smoke ✅: doğru parola 200, büyük harfli email 200; yanlış parola / bilinmeyen email 401 (aynı gövde); süreler (15'er istek, medyan) doğru 0.054 s, yanlış parola 0.050 s, bilinmeyen email 0.049 s, validation 400 0.002 s; DEACTIVATED hesapta doğru / yanlış parola ikisi de 401 ve 0.052 s (log: "account is disabled"); `{bcrypt}` kullanıcı: yanlış parola 401 + hash değişmedi, doğru parola 200 + hash `{argon2}$argon2id$...` (105 karakter) + `updated_at` güncellendi, ikinci login'de yükseltme yok; DB kapalı → 500 (Hikari 30 s bekledikten sonra); sarmal açılmadığında aynı durum 401 `Invalid email or password` (geçici değişiklikle denendi, geri alındı); `GET /api/auth/login` 401; boş alanlar 400; register hâlâ 201
+- Bilinen sızıntı: `{bcrypt}` hash'li hesapta yanlış parola ~0.095 s (argon2'de ~0.05 s) — süre, hesabın eski hash'li olduğunu ele verir; o kullanıcılar bir kez girince kapanır
+- Gözlem: Spring Security, `UserDetailsService` bean'inden ayrıca bir global `AuthenticationManager` kurar (log: "Global AuthenticationManager configured with UserDetailsService bean"); login'de kullanılan bizim açıkça kurduğumuz `AuthenticationManager` bean'i
 
 ### R2b — Argon2 ✅ (2026-10-27)
 
@@ -141,11 +154,11 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
-auth/             AuthService (register)
-auth/config       SecurityConfig (filter chain, PasswordEncoder: argon2 + bcrypt)
-auth/web          AuthController (POST /api/auth/register), SecurityProblemHandler, dto/RegisterRequest, dto/RegisterResponse
-user/             UserService (register)
-user/domain       User (email, displayName, passwordHash, status; normalizeEmail), UserStatus, UserRepository, UserExampleListener (örnek)
+auth/             AuthService (register, login), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails
+auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt)
+auth/web          AuthController (POST /api/auth/register, /login), AuthExceptionHandler, SecurityProblemHandler, dto/RegisterRequest|Response, dto/LoginRequest|Response
+user/             UserService (create, findByEmail, changePasswordHash)
+user/domain       User (email, displayName, passwordHash, status; normalizeEmail, changePasswordHash), UserStatus, UserRepository, UserExampleListener (örnek)
 ```
 
 ## Known technical debt
