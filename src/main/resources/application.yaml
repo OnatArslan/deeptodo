@@ -18,3 +18,16 @@ spring:
     # Validation (400), 405 gibi Spring MVC hataları da ProblemDetail formatında dönsün.
     problemdetails:
       enabled: true
+
+deeptodo:
+  security:
+    jwt:
+      # iss / aud: R5'te doğrulayıcı aynı değerleri bekler. Production'da public URL (E4).
+      issuer: ${JWT_ISSUER:http://localhost:8080}
+      audience: deeptodo-api
+      # Kısa ömür: access token iptal edilemez (G2'ye kadar), çalınırsa en fazla bu kadar işe yarar.
+      access-token-ttl: 15m
+      # Key'ler repoda değil: local'de secrets/ (gitignore), production'da env ile verilen yol.
+      # Üretimi: CLAUDE.md → Çalıştırma.
+      private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:./secrets/jwt-private.pem}
+      public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:./secrets/jwt-public.pem}

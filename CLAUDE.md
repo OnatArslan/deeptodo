@@ -201,6 +201,9 @@ Todo → hard delete     Tag → hard delete       Membership → hard delete
 **Kod stili**
 - Constructor injection; package-by-feature (spec §5); request/response DTO ayrımı (record); entity doğrudan REST cevabı olmaz.
 - Entity'de Lombok `@Data` yok; public setter yalnız gerçek ihtiyaçta.
+- Controller metotları `ResponseEntity<T>` döner (`ok`, `status(CREATED)`, `noContent`); `@ResponseStatus` controller metodunda
+  kullanılmaz. Tek tip kural: header (`Location`, `Set-Cookie`) ya da duruma göre değişen status gerektiğinde zaten
+  `ResponseEntity` lazım. Exception handler'lar `ProblemDetail` döner (status içinde).
 - Controller'da business logic yok, controller'dan repository'ye doğrudan çağrı yok, her service için interface yok, `catch (Exception)` yok.
 - Modern Java (record, sealed, pattern matching); preview/incubator özellikleri yok.
 - Kod yorumları Türkçe ve "neden"i anlatır; kodun zaten söylediğini tekrar etmez.
@@ -242,6 +245,14 @@ docker compose up -d        # local PostgreSQL (+ G adımlarından sonra Redis, 
 ```
 
 Local PostgreSQL host'ta `localhost:5433`'te (5432 bu makinede başka bir projede). `DB_URL` varsayılanı buna göre.
+
+JWT imza key'leri (R4) repoda değil; `secrets/` gitignore'da. Dosyalar yoksa uygulama açılmaz. Bir kez üret:
+
+```bash
+mkdir -p secrets
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt-private.pem
+openssl pkey -in secrets/jwt-private.pem -pubout -out secrets/jwt-public.pem
+```
 
 ---
 

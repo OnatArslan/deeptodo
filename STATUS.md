@@ -6,7 +6,7 @@
 
 ## Last updated
 
-2026-10-28
+2026-10-29
 
 ## Current phase
 
@@ -16,9 +16,9 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **R4** — access token (RS256 key çifti `secrets/`'ta, `JwtEncoder`, claim'ler, `kid`); login token döner.
+_None._ Sıradaki: **R5** — resource server (public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `GET /api/users/me`).
 
-Ara durum (R3 sonrası): kayıt ve login çalışıyor, ama login kimliği sonraki isteklere taşımıyor (token yok); health, register ve login dışındaki her istek 401.
+Ara durum (R4 sonrası): login imzalı bir access token dönüyor, ama token'ı kabul eden taraf yok; `Authorization: Bearer` ile gelen istek de 401 (health, register, login dışında her şey).
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -33,6 +33,19 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R4 — Access token ✅ (2026-10-29)
+
+- `spring-security-oauth2-jose` (Spring'in `JwtEncoder`'ı + Nimbus JOSE + JWT 10.9.1); resource server starter R5'te
+- `auth/config/JwtProperties` (`deeptodo.security.jwt.*`, `@Validated`): issuer (`JWT_ISSUER`, varsayılan `http://localhost:8080`), audience `deeptodo-api`, TTL 15 dk, key yolları (`JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION`, varsayılan `file:./secrets/jwt-*.pem`)
+- `auth/config/JwtConfig`: PEM'leri `RsaKeyConverters` ile okur (PKCS#8 private, X.509 public), iki key'in modulus'u eşleşmezse açılmaz; `NimbusJwtEncoder.withKeyPair` → header `alg=RS256`, `typ=JWT`, `kid` = public key'in RFC 7638 thumbprint'i
+- `auth/token/AccessTokenService`: claim'ler `iss`, `sub` (user id), `aud`, `iat`, `exp` (+15 dk), `jti` (rastgele UUID); rol / email / üyelik yok
+- `POST /api/auth/login` → `{accessToken, tokenType: "Bearer", expiresIn: 900}`; register token dönmez (spec §10), R7'de refresh ile yeniden değerlendirilir
+- Key'ler: `secrets/`'taki 2048-bit çift (önceki implementasyondan, 2026-10-11) kullanıldı; üretim komutu `CLAUDE.md` → Çalıştırma
+- Manual smoke ✅: login 200, token 3 parça / 685 karakter / imza 256 byte; header `{"kid":"oSIEKHAnOpq4…","typ":"JWT","alg":"RS256"}`; payload'da 6 claim, `exp - iat = 900`, `sub` = `users.id`; imza `openssl dgst -sha256 -verify` ile public key'e karşı `Verified OK`; `sub`'ı değiştirilmiş payload aynı imzayla `Verification failure`; `kid` elle hesaplanan thumbprint ile aynı; iki login → aynı `kid`, farklı `jti`; yanlış parola hâlâ 401; token'lı `GET /api/users/me` 401 (resource server yok, beklenen); login ~0.063 s (argon2 + RSA imza)
+- Açılış hata modları ✅ (uygulama açılmaz, mesaj sebebi söyler): eksik key dosyası → `JWT key not found: …`; başka çiftin public key'i → `JWT public key does not match the private key`; boş issuer → `Binding to target JwtProperties failed … deeptodo.security.jwt.issuer`
+- Review sonrası: `AccessTokenIssuer` → `AccessTokenService` (`@Service`; G2'de iptal de buraya gelir); `AuthService.login` tek metot (ayrı `authenticate` yok); controller'lar `ResponseEntity<T>` döner, `@ResponseStatus` kullanılmaz (kural `CLAUDE.md` → Kod stili). Yeniden smoke ✅: register 201 (Location yok), login 200 + token, yanlış parola 401, boş alan 400, aynı email 409, DB kapalı → 500
+- Not: tek elemanlı `aud` JSON'da dizi değil string olarak yazılıyor (`"aud":"deeptodo-api"`); RFC 7519 ikisine de izin verir, doğrulayıcılar ikisini de kabul eder
 
 ### R3 — Login ✅ (2026-10-28)
 
@@ -155,7 +168,8 @@ common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
 auth/             AuthService (register, login), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails
-auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt)
+auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (JwtEncoder, RSA key'ler), JwtProperties
+auth/token        AccessTokenService (claim'ler), AccessToken
 auth/web          AuthController (POST /api/auth/register, /login), AuthExceptionHandler, SecurityProblemHandler, dto/RegisterRequest|Response, dto/LoginRequest|Response
 user/             UserService (create, findByEmail, changePasswordHash)
 user/domain       User (email, displayName, passwordHash, status; normalizeEmail, changePasswordHash), UserStatus, UserRepository, UserExampleListener (örnek)

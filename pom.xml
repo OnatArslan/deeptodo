@@ -69,6 +69,12 @@
             <version>1.86</version>
             <scope>runtime</scope>
         </dependency>
+        <!-- JWT imzalama: Spring Security'nin JwtEncoder'ı ve altındaki Nimbus JOSE + JWT kütüphanesi.
+             R5'te doğrulama için resource server starter'ı gelir (bu modülü zaten içerir). Sürüm Boot'un BOM'unda. -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
