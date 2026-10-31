@@ -149,8 +149,9 @@ Commit mesajı da bu adımlarda aynı derinliğin kısa özetini taşır.
 `PROJECT_SPEC.md` bağlayıcıdır. Kapsam değişikliği normal bir refactor gibi yapılmaz: önce etkisini açıkla, karar Onat'ın.
 `STATUS.md`'deki "Locked scope decisions" uygulama sırasında yeniden açılmaz.
 
-Authentication uygulamada, Spring Security ile yazılır (spec §10, karar 2026-10-25). Keycloak denendi ve bırakıldı;
-yeniden önerilmez.
+Authentication şu an uygulamada, Spring Security ile yazılıyor (spec §10, karar 2026-10-25). Karar 2026-10-31: R7–R9
+(refresh token) burada öğrenilmek için yazılır, sonra kendi auth'umuz kaldırılıp Keycloak'a geçilir (ROADMAP R bölümü).
+Keycloak adımlarında anlatım, aynı işi R adımlarında kendimiz nasıl yaptığımızla karşılaştırır.
 
 Redis ve Kafka yalnız spec §2.1'deki **öğrenme modülleri** use-case'leri için kullanılır; "production gibi dursun" diye
 başka yere eklenmez. Microservice, CQRS, event sourcing, generic BaseService/BaseRepository, AuditLog tablosu ve

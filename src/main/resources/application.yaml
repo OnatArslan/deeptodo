@@ -27,7 +27,7 @@ deeptodo:
       audience: deeptodo-api
       # Kısa ömür: access token iptal edilemez (G2'ye kadar), çalınırsa en fazla bu kadar işe yarar.
       access-token-ttl: 15m
-      # Key'ler repoda değil: local'de secrets/ (gitignore), production'da env ile verilen yol.
+      # Key'ler repoda değil: local'de secrets/ (gitignore), production'da env (dosya yolu ya da PEM metninin kendisi).
       # Üretimi: CLAUDE.md → Çalıştırma.
-      private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:./secrets/jwt-private.pem}
-      public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:./secrets/jwt-public.pem}
+      private-key: ${JWT_PRIVATE_KEY:file:./secrets/jwt-private.pem}
+      public-key: ${JWT_PUBLIC_KEY:file:./secrets/jwt-public.pem}

@@ -28,6 +28,11 @@ Commit edilmemiş eski user / workspace kodu `wip/user-workspace-reference` bran
 
 ## R — Authentication (spec §10, Phase 3) 🔬
 
+**Karar (2026-10-31):** auth'u öğrenmek için R7–R9 (refresh token) burada yazılır; ardından kendi auth'umuz kaldırılır ve
+**Keycloak**'a geçilir (K serisi, R9'dan sonra planlanır). Gerekçe: Onat gerçek projelerde kendi auth'unu yazmayacak, Keycloak
+tarzı bir kimlik sağlayıcı kullanacak. Kendi auth'umuzun son hali bir git tag'i ile işaretlenir; K adımlarının anlatımında
+"burada biz kendimiz şöyle yapmıştık" karşılaştırması yapılır. R10 / R11 Keycloak'ta karşılanır.
+
 - [x] **R1** (82087a7) Spring Security'yi ekle: dependency'nin tek başına yaptığı (her şey kilitli, üretilmiş parola), sonra kendi `SecurityFilterChain`'imiz:
   stateless, CSRF kararı, health açık, 401 / 403 ProblemDetail (`SecurityProblemHandler`). Filter zincirini TRACE log ile gözlemleme
 - [x] **R2** (2961fd0) Parola + register: `PasswordEncoder` (delegating, bcrypt), `User.passwordHash`, `POST /api/auth/register` (email normalize, tekil → 409)
@@ -35,13 +40,13 @@ Commit edilmemiş eski user / workspace kodu `wip/user-workspace-reference` bran
 - [x] **R3** (72afcec) Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; timing attack koruması; yanlış parola / bilinmeyen email aynı 401;
   login'de eski bcrypt hash'in argon2'ye yükseltilmesi (`UserDetailsPasswordService`)
 - [x] **R4** (06b419e) Access token: RS256 key çifti (`secrets/`), `JwtEncoder`, claim'ler (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`), header'da `kid`; login token döner
-- [x] **R5** Resource server: public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `CurrentUser`, `GET /api/users/me`; DEACTIVATED kullanıcının token'ı süresi dolana kadar geçerli (DB'siz doğrulama, karar 2026-10-31), kapatma R10'da
-- [ ] **R6** Key rotation: birden çok key, `kid` ile seçim, eski key'le imzalı token'ların geçiş süresi
+- [x] **R5** (683bee4) Resource server: public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `CurrentUser`, `GET /api/users/me`; DEACTIVATED kullanıcının token'ı süresi dolana kadar geçerli (DB'siz doğrulama, karar 2026-10-31), kapatma R10'da
+- [x] **R6** Key rotation: `RSAKey` + `kid` (thumbprint), key'ler properties'e doğrudan bağlanır, 2048-bit kontrolü; rotation = yeni key + yeniden başlatma (eski token 401 → refresh ile yenilenir, geçiş süresi yok)
 - [ ] **R7** Refresh token: opaque 256-bit, DB'de SHA-256 hash (V3 tablosu), HttpOnly + SameSite=Strict + Path cookie; login / register'da üretim
 - [ ] **R8** Rotation: `POST /api/auth/refresh`, koşullu `markUsed` + Testcontainers altyapısı ve eşzamanlı refresh testi (spec §15 istisnası)
 - [ ] **R9** Reuse detection: kullanılmış token tekrar gelirse ailenin revoke'u; reddetmeyi sonuç nesnesiyle dönmek ve transaction sınırı
-- [ ] **R10** Logout + hesap: `POST /api/auth/logout`, `PATCH / DELETE /api/users/me`; hesap kapatınca bütün refresh token'ların revoke'u
-- [ ] **R11** Login rate limit: in-memory, email + IP, 429 + `Retry-After`
+- [ ] ~~**R10**~~ Logout + hesap: _(Keycloak'a geçişte K serisinde)_ `POST /api/auth/logout`, `PATCH / DELETE /api/users/me`; hesap kapatınca bütün refresh token'ların revoke'u
+- [ ] ~~**R11**~~ Login rate limit: _(Keycloak brute-force koruması)_ in-memory, email + IP, 429 + `Retry-After`
 
 ## W — Workspace (spec Phase 2, adım 1–3)
 

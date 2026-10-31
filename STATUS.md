@@ -6,7 +6,7 @@
 
 ## Last updated
 
-2026-10-30
+2026-10-31
 
 ## Current phase
 
@@ -16,7 +16,7 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **R6** — key rotation (birden çok key, `kid` ile seçim, eski key'in geçiş süresi).
+_None._ Sıradaki: **R7** — refresh token (opaque 256-bit, DB'de SHA-256 hash, HttpOnly + SameSite=Strict cookie; login'de üretim).
 
 Ara durum (R5 sonrası): login → access token → `Authorization: Bearer` ile korumalı istekler çalışıyor (`GET /api/users/me`). Refresh token yok: token 15 dk sonra dolunca yeniden login gerekir (R7–R9).
 
@@ -33,6 +33,13 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R6 — Key rotation ✅ (2026-10-31)
+
+- `JwtProperties`: `private-key` / `public-key` doğrudan `RSAPrivateKey` / `RSAPublicKey` (Spring Security'nin `RsaKeyConversionServicePostProcessor` converter'ları; değer dosya yolu ya da PEM metni). Elle key okuma (`RsaKeyConverters`, `open`) kalktı. Env adları: `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` (önceden `*_LOCATION`)
+- `JwtConfig` (Onat'ın önceki projesindeki yapıya göre): `RSAKey jwtSigningKey` bean'i (modulus kontrolü, ≥ 2048 bit, `kid` = RFC 7638 thumbprint) → encoder `NimbusJwtEncoder(ImmutableJWKSet)`, decoder `withPublicKey(...)` + açıkça `RS256`
+- Rotation: yeni key çifti + yeniden başlatma. Eski key'le imzalı access token 401 alır; refresh token (R7) ile yenilenir. Geçiş süresi listesi (`verification-keys`) denendi, karmaşıklığına değmediği için kaldırıldı (birden çok instance olursa gerekir)
+- Manual smoke ✅: mevcut key'le kid `oSIEKHAnOpq4…` (R4 ile aynı), `/me` 200; `alg=none` 401, exp yok 401, başka aud 401; key değişince eski token 401 `Invalid signature`, yeni token (kid `GyEl9f5W…`) 200; 1024-bit key → `JWT RSA key must be at least 2048 bits, got 1024`; eşleşmeyen çift → `do not belong to the same key pair`; eksik dosya → `Failed to bind properties under 'deeptodo.security.jwt.private-key'`; PEM metni env'den → açılır, kid aynı; bozuk PEM env'den → hata raporu placeholder'ı yazar, key log'a sızmaz (geçiş listeli sürümle denendi, binding aynı)
 
 ### R5 — Resource server ✅ (2026-10-30)
 
@@ -180,7 +187,7 @@ common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
 auth/             AuthService (register, login), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails, CurrentUser (Bearer isteğin principal'ı)
-auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (JwtEncoder, JwtDecoder + validator'lar, RSA key'ler), JwtProperties
+auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (RSAKey signing key + kid, JwtEncoder, JwtDecoder + validator'lar), JwtProperties
 auth/token        AccessTokenService (claim'ler), AccessToken, CurrentUserConverter (Jwt → CurrentUser, DB'siz)
 auth/web          AuthController (POST /api/auth/register, /login), AuthExceptionHandler, SecurityProblemHandler, dto/RegisterRequest|Response, dto/LoginRequest|Response
 user/             UserService (create, findByEmail, getById, changePasswordHash)
@@ -198,7 +205,7 @@ user/domain       User (email, displayName, passwordHash, status; normalizeEmail
 ## Current learning focus
 
 - Spring Security 7 içeriden: filter chain, `AuthenticationManager` / `DaoAuthenticationProvider`, `SecurityContext`
-- JWT (RS256, `kid`, `iss` / `aud` / `exp`) ve key rotation
+- JWT (RS256, `kid`, `iss` / `aud` / `exp`) ve key rotation ✅
 - Refresh token rotation, reuse detection, transaction sınırları ve concurrency
 
 ## Locked scope decisions
@@ -216,6 +223,6 @@ Do not casually reopen these during implementation:
 - register does not auto-create Workspace
 - tests mainly Phase 4
 - no AuditLog in v1
-- authentication written in-app with Spring Security (Keycloak tried and dropped 2026-10-25)
+- authentication written in-app with Spring Security (Keycloak tried and dropped 2026-10-25) — **2026-10-31: R7–R9 bitince Keycloak'a geçilir (ROADMAP R bölümündeki karar)**
 - Redis / Kafka only for spec §2.1 learning modules; no microservices
 - final v1 includes Docker + public HTTPS deployment
