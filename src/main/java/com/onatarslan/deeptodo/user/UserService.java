@@ -55,6 +55,12 @@ public class UserService {
         return userRepository.findByEmail(User.normalizeEmail(email));
     }
 
+    @Transactional(readOnly = true)
+    public User getById(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("user not found"));
+    }
+
     // Dirty checking: managed entity'nin alanı değişir, commit'te UPDATE çalışır (updated_at'i auditing yazar).
     // Şu an bu metodu yalnız login'deki hash yükseltmesi çağırır; aynı kullanıcının iki eşzamanlı login'i
     // ikisi de geçerli iki hash yazar, son yazan kalır. Parola değiştirme eklenirse bu bir lost update olur

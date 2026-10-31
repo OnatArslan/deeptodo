@@ -34,8 +34,8 @@ Commit edilmemiş eski user / workspace kodu `wip/user-workspace-reference` bran
 - [x] **R2b** (9e02bc7) Argon2: yeni hash'ler argon2id (OWASP: 19 MiB, 2 tur, 1 hat), eski `{bcrypt}` hash'ler doğrulanabilir kalır; BouncyCastle dependency'si
 - [x] **R3** (72afcec) Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; timing attack koruması; yanlış parola / bilinmeyen email aynı 401;
   login'de eski bcrypt hash'in argon2'ye yükseltilmesi (`UserDetailsPasswordService`)
-- [x] **R4** Access token: RS256 key çifti (`secrets/`), `JwtEncoder`, claim'ler (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`), header'da `kid`; login token döner
-- [ ] **R5** Resource server: public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `CurrentUser`, `GET /api/users/me`, DEACTIVATED kullanıcının reddi
+- [x] **R4** (06b419e) Access token: RS256 key çifti (`secrets/`), `JwtEncoder`, claim'ler (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`), header'da `kid`; login token döner
+- [x] **R5** Resource server: public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `CurrentUser`, `GET /api/users/me`; DEACTIVATED kullanıcının token'ı süresi dolana kadar geçerli (DB'siz doğrulama, karar 2026-10-31), kapatma R10'da
 - [ ] **R6** Key rotation: birden çok key, `kid` ile seçim, eski key'le imzalı token'ların geçiş süresi
 - [ ] **R7** Refresh token: opaque 256-bit, DB'de SHA-256 hash (V3 tablosu), HttpOnly + SameSite=Strict + Path cookie; login / register'da üretim
 - [ ] **R8** Rotation: `POST /api/auth/refresh`, koşullu `markUsed` + Testcontainers altyapısı ve eşzamanlı refresh testi (spec §15 istisnası)

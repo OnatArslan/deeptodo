@@ -1,6 +1,7 @@
 package com.onatarslan.deeptodo.auth.config;
 
 import com.onatarslan.deeptodo.auth.AppUserDetailsService;
+import com.onatarslan.deeptodo.auth.token.CurrentUserConverter;
 import com.onatarslan.deeptodo.auth.web.SecurityProblemHandler;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
@@ -16,19 +17,27 @@ import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.Map;
 
 // Kendi SecurityFilterChain bean'imiz tanımlanınca Spring Boot'un varsayılan zinciri (form login, Basic auth,
 // üretilmiş parola) devre dışı kalır. Zincirde yalnız burada istediğimiz davranışlar olur.
-// Login (R3) zincirde bir filter değil, sıradan bir endpoint: kimliği o istekte doğrular ama sonraki isteklere
-// taşımaz. Korumalı istekler Bearer token (R5) gelene kadar 401 alır.
+// Login (R3) zincirde bir filter değil, sıradan bir endpoint: kimliği doğrular ve access token döner (R4).
+// Sonraki istekler kimliği token'la getirir; onu zincirdeki BearerTokenAuthenticationFilter doğrular (R5).
 @Configuration
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityProblemHandler problemHandler) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityProblemHandler problemHandler,
+                                            JwtDecoder jwtDecoder, CurrentUserConverter currentUserConverter) throws Exception {
+        // Spring'in varsayılan converter'ı; yalnız principal'ı değiştiriyoruz: controller'lar Jwt'yi değil
+        // CurrentUser'ı görür. Authority'leri yine o kurar: scope / scp claim'i yok → boş, artı FACTOR_BEARER.
+        JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
+        authenticationConverter.setJwtPrincipalConverter(currentUserConverter);
+
         http
                 // Sunucu kimseyi hafızasında tutmaz: HttpSession açılmaz, JSESSIONID cookie'si yazılmaz.
                 // Her istek kimliğini kendisi getirecek (R5: Authorization: Bearer <token>).
@@ -55,6 +64,22 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         // Geri kalan her şey kimlik ister. Kurallar sırayla değerlendirilir; bu satır en sonda durmalı.
                         .anyRequest().authenticated())
+
+                // Resource server: BearerTokenAuthenticationFilter'ı zincire ekler. "Authorization: Bearer <token>" varsa
+                // token'ı JwtDecoder'a (imza + iss / aud / exp, JwtConfig) verir, başarılıysa Authentication'ı
+                // SecurityContext'e koyar. Header yoksa hiçbir şey yapmaz; istek anonim devam eder ve
+                // AuthorizationFilter'da 401 alır. Token geçersizse 401'i filter'ın kendisi döner, entry point
+                // olarak bizim handler'ımızla (verilmezse Spring'in gövdesiz BearerTokenAuthenticationEntryPoint'i).
+                .oauth2ResourceServer(resourceServer -> resourceServer
+                        .authenticationEntryPoint(problemHandler)
+                        .jwt(jwt -> jwt
+                                .decoder(jwtDecoder)
+                                .jwtAuthenticationConverter(authenticationConverter))
+                        // Security 7, GET /.well-known/oauth-protected-resource'ta API'yi tarif eden public bir JSON
+                        // yayınlar (RFC 9728; 401'deki resource_metadata bunu gösterir). Varsayılanı token'ların istemci
+                        // sertifikasına bağlı olduğunu (mTLS) söylüyor; bizde öyle değil.
+                        .protectedResourceMetadata(metadata -> metadata.protectedResourceMetadataCustomizer(
+                                builder -> builder.tlsClientCertificateBoundAccessTokens(false))))
 
                 // Zincirde oluşan 401 / 403 cevapları da ProblemDetail olsun. Bunlar DispatcherServlet'e hiç ulaşmaz,
                 // @RestControllerAdvice onları göremez. Entry point verilmezse (form login / Basic auth da yokken)

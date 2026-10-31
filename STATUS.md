@@ -6,7 +6,7 @@
 
 ## Last updated
 
-2026-10-29
+2026-10-30
 
 ## Current phase
 
@@ -16,9 +16,9 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **R5** — resource server (public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `GET /api/users/me`).
+_None._ Sıradaki: **R6** — key rotation (birden çok key, `kid` ile seçim, eski key'in geçiş süresi).
 
-Ara durum (R4 sonrası): login imzalı bir access token dönüyor, ama token'ı kabul eden taraf yok; `Authorization: Bearer` ile gelen istek de 401 (health, register, login dışında her şey).
+Ara durum (R5 sonrası): login → access token → `Authorization: Bearer` ile korumalı istekler çalışıyor (`GET /api/users/me`). Refresh token yok: token 15 dk sonra dolunca yeniden login gerekir (R7–R9).
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -33,6 +33,18 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R5 — Resource server ✅ (2026-10-30)
+
+- `spring-boot-starter-security-oauth2-resource-server` (`spring-security-oauth2-jose`'nin yerine; onu da içerir). Zincire iki filter eklendi: `BearerTokenAuthenticationFilter` (6/11) ve `OAuth2ProtectedResourceMetadataFilter` (5/11)
+- `JwtConfig.jwtDecoder`: `NimbusJwtDecoder.withPublicKey` (yalnız RS256), validator'lar: `typ` (JWT ya da yok), exp zorunlu + exp / nbf (60 sn saat farkı payı, uygulamanın `Clock`'u), `iss`, `aud`, x5t (varsayılan; bizde sertifika yok). Key okuma yardımcı metotlara ayrıldı
+- `SecurityConfig`: `oauth2ResourceServer(jwt(decoder, converter))`, entry point `SecurityProblemHandler`; `JwtAuthenticationConverter` + `setJwtPrincipalConverter(CurrentUserConverter)` → `JwtAuthenticationToken` [principal `CurrentUser`, credentials `Jwt`, authority yalnız `FACTOR_BEARER`]
+- `auth/CurrentUser` (record, `OAuth2AuthenticatedPrincipal`, yalnız id); `auth/token/CurrentUserConverter`: `sub` → UUID → `CurrentUser` (UUID değilse `InvalidBearerTokenException`, 401). DB'ye gitmez
+- Review kararı (Onat): token doğrulamasında kullanıcı durumu DB'den kontrol edilmez (ilk sürümde her istekte `users` SELECT'i vardı, kaldırıldı). DEACTIVATED kullanıcının token'ı süresi dolana kadar (≤ 15 dk + 60 sn) geçerli; kapatma: login 401 (R3), refresh token'ların revoke'u (R10), anında iptal gerekirse `jti` denylist (G2)
+- `SecurityProblemHandler.commence`: status + `WWW-Authenticate`'i Spring'in `BearerTokenAuthenticationEntryPoint`'i yazar (`error="invalid_token"`, `error_description`, `resource_metadata`), gövde ProblemDetail (`Authentication required` / `Invalid or expired access token`)
+- Metadata (RFC 9728) `GET /.well-known/oauth-protected-resource` public; varsayılandaki yanlış `tls_client_certificate_bound_access_tokens: true` → `false`
+- `user/web/UserController` `GET /api/users/me` (`@AuthenticationPrincipal CurrentUser`) → `MeResponse {id, email, displayName}`; `UserService.getById`
+- Manual smoke ✅: token'la `/me` 200 (medyan 0.005 s); token yok 401 `Bearer resource_metadata=…`; bozuk token 401 `Malformed token`. openssl ile imzalanmış sahte token'lar: geçerli 200; exp 120 / 61 sn önce dolmuş 401 `Jwt expired at …`, 30 sn önce 200 (skew); exp yok 401 `exp is required`; başka iss / aud 401; `alg=none` 401 `Unsupported algorithm`; HS256 + public key secret (alg confusion) 401; başka private key + aynı kid 401 `Invalid signature`; gerçek token'da `sub` değiştirilmiş 401; `?access_token=` 401 (yalnız header); `sub=admin` 401 `Invalid subject`; TRACE: 11 filter. Review sonrası: `/me` başına 1 SELECT (yalnız controller), medyan 0.004 s; DEACTIVATED → aynı token `/me` 200 (bilinçli pencere), login 401; DB kapalıyken token'lı istek olmayan bir endpoint'e 404 (kimlik doğrulaması DB'siz geçti), token'sız 401, `/me` 500
 
 ### R4 — Access token ✅ (2026-10-29)
 
@@ -167,11 +179,12 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
-auth/             AuthService (register, login), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails
-auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (JwtEncoder, RSA key'ler), JwtProperties
-auth/token        AccessTokenService (claim'ler), AccessToken
+auth/             AuthService (register, login), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails, CurrentUser (Bearer isteğin principal'ı)
+auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (JwtEncoder, JwtDecoder + validator'lar, RSA key'ler), JwtProperties
+auth/token        AccessTokenService (claim'ler), AccessToken, CurrentUserConverter (Jwt → CurrentUser, DB'siz)
 auth/web          AuthController (POST /api/auth/register, /login), AuthExceptionHandler, SecurityProblemHandler, dto/RegisterRequest|Response, dto/LoginRequest|Response
-user/             UserService (create, findByEmail, changePasswordHash)
+user/             UserService (create, findByEmail, getById, changePasswordHash)
+user/web          UserController (GET /api/users/me), dto/MeResponse
 user/domain       User (email, displayName, passwordHash, status; normalizeEmail, changePasswordHash), UserStatus, UserRepository, UserExampleListener (örnek)
 ```
 
