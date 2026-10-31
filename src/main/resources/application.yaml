@@ -31,3 +31,9 @@ deeptodo:
       # Üretimi: CLAUDE.md → Çalıştırma.
       private-key: ${JWT_PRIVATE_KEY:file:./secrets/jwt-private.pem}
       public-key: ${JWT_PUBLIC_KEY:file:./secrets/jwt-public.pem}
+    refresh-token:
+      # Uzun ömür: kullanıcı bu süre boyunca parola girmeden oturumda kalır. İptal edilebilir (DB'de satır), access
+      # token gibi süresini beklemek gerekmez.
+      ttl: 14d
+      # Local HTTP'de false; production'da (HTTPS) true (E4).
+      cookie-secure: ${REFRESH_COOKIE_SECURE:false}

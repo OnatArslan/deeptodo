@@ -16,9 +16,9 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **R7** — refresh token (opaque 256-bit, DB'de SHA-256 hash, HttpOnly + SameSite=Strict cookie; login'de üretim).
+_None._ Sıradaki: **R8** — `POST /api/auth/refresh`: cookie'deki token'ı koşullu UPDATE ile `used` işaretle, aynı ailede halef üret; Testcontainers + eşzamanlı refresh testi.
 
-Ara durum (R5 sonrası): login → access token → `Authorization: Bearer` ile korumalı istekler çalışıyor (`GET /api/users/me`). Refresh token yok: token 15 dk sonra dolunca yeniden login gerekir (R7–R9).
+Ara durum (R7 sonrası): login access token (gövde) + refresh token (cookie) veriyor; refresh token DB'de duruyor ama kullanan endpoint yok (R8). Access token 15 dk sonra dolunca hâlâ yeniden login gerekir.
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -33,6 +33,15 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R7 — Refresh token üretimi ✅ (2026-10-31)
+
+- `auth/domain/RefreshToken` (V3 `refresh_tokens`; `BaseEntity`, `user_id` scalar, `family_id`, `token_hash`, `created_at`, `expires_at`, `used_at`, `revoked_at`) + `RefreshTokenRepository`
+- `auth/token/RefreshTokenService.issueForNewFamily(userId)`: `SecureRandom` 32 byte → base64url (43 karakter) → SHA-256 hex (64 karakter) DB'ye; ham değer yalnız cookie'ye. Her login yeni `family_id` (bir aile = bir oturum). Kendi kısa transaction'ı
+- `auth/config/RefreshTokenProperties` (`deeptodo.security.refresh-token.*`): `ttl` 14 gün, `cookie-secure` (`REFRESH_COOKIE_SECURE`, local false)
+- `AuthService.login` → `AuthTokens(accessToken, refreshToken)`; `AuthController.login` access token'ı gövdede, refresh token'ı `Set-Cookie: refresh_token=…; Path=/api/auth; Max-Age=1209600; HttpOnly; SameSite=Strict` (+ `Secure` production'da) ile döner. Register token üretmez (spec §10)
+- CSRF kapalı kalır; cookie'li uçlar SameSite=Strict ile korunur (spec §10, `SecurityConfig` yorumu güncellendi)
+- Manual smoke ✅: login 200 + Set-Cookie (bayraklar yukarıdaki gibi); gövdede yalnız access token; ham token 43 karakter; DB'de `sha256(ham)` ile 1 satır, ham değerle 0 satır; hash 64 karakter, `expires_at - created_at = 14 days`, `used_at` / `revoked_at` null; iki login → iki satır, iki farklı aile; yanlış parola 401 ve satır oluşmadı; login medyan 0.065 s (argon2 + imza + INSERT); curl cookie jar ile cookie `/api/users/me`'ye eklenmedi, `/api/auth/refresh`'e eklendi (Path); `REFRESH_COOKIE_SECURE=true` → `Secure` bayrağı; register Set-Cookie döndürmüyor; access token ile `/me` 200
 
 ### R6 — Key rotation ✅ (2026-10-31)
 
@@ -186,9 +195,10 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
-auth/             AuthService (register, login), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails, CurrentUser (Bearer isteğin principal'ı)
-auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (RSAKey signing key + kid, JwtEncoder, JwtDecoder + validator'lar), JwtProperties
-auth/token        AccessTokenService (claim'ler), AccessToken, CurrentUserConverter (Jwt → CurrentUser, DB'siz)
+auth/             AuthService (register, login → AuthTokens), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails, CurrentUser (Bearer isteğin principal'ı)
+auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (RSAKey signing key + kid, JwtEncoder, JwtDecoder + validator'lar), JwtProperties, RefreshTokenProperties
+auth/domain       RefreshToken, RefreshTokenRepository
+auth/token        AccessTokenService (claim'ler), AccessToken, RefreshTokenService (üretim, SHA-256), CurrentUserConverter (Jwt → CurrentUser, DB'siz)
 auth/web          AuthController (POST /api/auth/register, /login), AuthExceptionHandler, SecurityProblemHandler, dto/RegisterRequest|Response, dto/LoginRequest|Response
 user/             UserService (create, findByEmail, getById, changePasswordHash)
 user/web          UserController (GET /api/users/me), dto/MeResponse
@@ -200,6 +210,7 @@ user/domain       User (email, displayName, passwordHash, status; normalizeEmail
 | ID | Debt | Planned phase |
 |---|---|---|
 | TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
+| TD-14 | Süresi dolmuş / kullanılmış refresh token satırları silinmiyor; tablo büyür (temizlik job'ı ya da Keycloak geçişinde tablonun kaldırılması) | K serisi |
 | TD-12 | Validation 400 cevabı hangi alanın hatalı olduğunu söylemiyor (`detail: Invalid request content.`); beklenmeyen 500'ler hâlâ Boot'un `/error` JSON'u (ProblemDetail değil) | Phase 4 (E2 ile) |
 
 ## Current learning focus

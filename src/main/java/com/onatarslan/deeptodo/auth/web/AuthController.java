@@ -1,6 +1,8 @@
 package com.onatarslan.deeptodo.auth.web;
 
 import com.onatarslan.deeptodo.auth.AuthService;
+import com.onatarslan.deeptodo.auth.AuthTokens;
+import com.onatarslan.deeptodo.auth.config.RefreshTokenProperties;
 import com.onatarslan.deeptodo.auth.token.AccessToken;
 import com.onatarslan.deeptodo.auth.web.dto.LoginRequest;
 import com.onatarslan.deeptodo.auth.web.dto.LoginResponse;
@@ -8,7 +10,9 @@ import com.onatarslan.deeptodo.auth.web.dto.RegisterRequest;
 import com.onatarslan.deeptodo.auth.web.dto.RegisterResponse;
 import com.onatarslan.deeptodo.user.domain.User;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,10 +23,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthService authService;
+    private static final String REFRESH_TOKEN_COOKIE = "refresh_token";
 
-    public AuthController(AuthService authService) {
+    private final AuthService authService;
+    private final RefreshTokenProperties refreshTokenProperties;
+
+    public AuthController(AuthService authService, RefreshTokenProperties refreshTokenProperties) {
         this.authService = authService;
+        this.refreshTokenProperties = refreshTokenProperties;
     }
 
     // Spec §10: register yalnız User oluşturur (workspace yok, token yok); istemci ardından login olur.
@@ -35,11 +43,30 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
-    // 200 + access token. Token'ı kabul eden taraf (resource server) R5'te gelir; o zamana kadar korumalı
-    // endpoint'ler token'lı istekte de 401 döner.
+    // 200: access token gövdede (istemci Authorization header'ına koyar), refresh token Set-Cookie'de.
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        AccessToken token = authService.login(request.email(), request.password());
-        return ResponseEntity.ok(new LoginResponse(token.value(), "Bearer", token.expiresIn().toSeconds()));
+        AuthTokens tokens = authService.login(request.email(), request.password());
+        AccessToken accessToken = tokens.accessToken();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(tokens.refreshToken()).toString())
+                .body(new LoginResponse(accessToken.value(), "Bearer", accessToken.expiresIn().toSeconds()));
+    }
+
+    // Refresh token'ın neden cookie'de olduğu, bayrak bayrak:
+    //   HttpOnly        JavaScript okuyamaz: sayfaya XSS ile sızan bir script token'ı çalamaz (access token'ı çalabilir,
+    //                   ama o 15 dk'da ölür).
+    //   SameSite=Strict başka bir siteden başlatılan isteğe tarayıcı cookie'yi eklemez: CSRF koruması (spec §10).
+    //   Path=/api/auth  cookie yalnız /api/auth/** isteklerine gider; diğer API çağrılarında ağda dolaşmaz.
+    //   Secure          yalnız HTTPS (production'da true, local HTTP'de false).
+    //   Max-Age         token'ın DB'deki ömrüyle aynı; süresi dolunca tarayıcı da siler.
+    private ResponseCookie refreshTokenCookie(String value) {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE, value)
+                .httpOnly(true)
+                .secure(refreshTokenProperties.cookieSecure())
+                .sameSite("Strict")
+                .path("/api/auth")
+                .maxAge(refreshTokenProperties.ttl())
+                .build();
     }
 }

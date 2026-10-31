@@ -4,6 +4,7 @@ import com.onatarslan.deeptodo.auth.AppUserDetailsService;
 import com.onatarslan.deeptodo.auth.token.CurrentUserConverter;
 import com.onatarslan.deeptodo.auth.web.SecurityProblemHandler;
 import jakarta.servlet.DispatcherType;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,6 +29,7 @@ import java.util.Map;
 // Login (R3) zincirde bir filter değil, sıradan bir endpoint: kimliği doğrular ve access token döner (R4).
 // Sonraki istekler kimliği token'la getirir; onu zincirdeki BearerTokenAuthenticationFilter doğrular (R5).
 @Configuration
+@EnableConfigurationProperties(RefreshTokenProperties.class)
 public class SecurityConfig {
 
     @Bean
@@ -45,7 +47,8 @@ public class SecurityConfig {
 
                 // CSRF, tarayıcının bir siteye kendiliğinden eklediği kimlik bilgisini (cookie, Basic auth) kötüye kullanan
                 // cross-site isteklere karşı korur. API'de kimlik Authorization header'ıyla gelecek; tarayıcı onu kendiliğinden
-                // eklemez. Refresh token cookie'si geldiğinde (R7) bu karar o cookie için yeniden ele alınır.
+                // eklemez. Refresh token cookie'si (R7) ise tarayıcının kendiliğinden eklediği bir kimlik; onu CSRF token'ı
+                // yerine SameSite=Strict korur: başka bir siteden başlatılan isteğe tarayıcı cookie'yi eklemez (spec §10).
                 .csrf(AbstractHttpConfigurer::disable)
 
                 // Varsayılan olarak açık gelen ama stateless bir API'de anlamı olmayan iki filter:

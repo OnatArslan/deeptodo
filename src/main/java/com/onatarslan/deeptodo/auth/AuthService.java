@@ -2,6 +2,7 @@ package com.onatarslan.deeptodo.auth;
 
 import com.onatarslan.deeptodo.auth.token.AccessToken;
 import com.onatarslan.deeptodo.auth.token.AccessTokenService;
+import com.onatarslan.deeptodo.auth.token.RefreshTokenService;
 import com.onatarslan.deeptodo.user.UserService;
 import com.onatarslan.deeptodo.user.domain.User;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -11,7 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-// Authentication use-case'leri: register ve login. Login access token döner; refresh token R7'de eklenir.
+// Authentication use-case'leri: register ve login. Login access token + refresh token döner.
 @Service
 public class AuthService {
 
@@ -19,19 +20,22 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final AccessTokenService accessTokenService;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthService(UserService userService, PasswordEncoder passwordEncoder,
-                       AuthenticationManager authenticationManager, AccessTokenService accessTokenService) {
+                       AuthenticationManager authenticationManager, AccessTokenService accessTokenService,
+                       RefreshTokenService refreshTokenService) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.accessTokenService = accessTokenService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     // Bilerek @Transactional değil: parola hash'leme kasıtlı olarak yavaştır. Hash'leme transaction'ın dışında yapılır,
     // DB bağlantısı yalnız UserService.create'in kısa INSERT'i boyunca tutulur.
     // Register use-case'i burası; UserService yalnız User satırını oluşturur. Token dönmez (spec §10: register
-    // yalnız User oluşturur); istemci ardından login olur. Refresh token ile birlikte R7'de yeniden değerlendirilir.
+    // yalnız User oluşturur); istemci ardından login olur. Refresh token da yalnız login'de üretilir.
     public User register(String email, String rawPassword, String displayName) {
         String passwordHash = passwordEncoder.encode(rawPassword);
         return userService.create(email, displayName, passwordHash);
@@ -40,7 +44,7 @@ public class AuthService {
     // Aynı sebeple @Transactional değil: okuma ve (gerekirse) hash yükseltmesi ayrı, kısa transaction'lar;
     // aradaki argon2 karşılaştırması bağlantı tutmaz.
     // Kimlik hatalı ya da hesap kapalıysa AuthenticationException fırlar (AuthExceptionHandler → 401).
-    public AccessToken login(String email, String rawPassword) {
+    public AuthTokens login(String email, String rawPassword) {
         // İddia: "ben bu email'im, parolam bu". unauthenticated → henüz kimse doğrulamadı, authority yok.
         Authentication claim = UsernamePasswordAuthenticationToken.unauthenticated(email, rawPassword);
         Authentication result;
@@ -56,8 +60,11 @@ public class AuthService {
             throw e;
         }
 
-        // Kimlik bu noktada doğrulandı; token bunun imzalı kanıtı. Sonraki istekler parolayı değil token'ı getirir.
+        // Kimlik bu noktada doğrulandı. Access token (15 dk) sonraki isteklerin kimliği; refresh token (14 gün) süresi
+        // dolan access token'ın parola sormadan yenilenmesi için (R8). Refresh satırı kendi kısa transaction'ında yazılır.
         AppUserDetails user = (AppUserDetails) result.getPrincipal();
-        return accessTokenService.issue(user.id());
+        AccessToken accessToken = accessTokenService.issue(user.id());
+        String refreshToken = refreshTokenService.issueForNewFamily(user.id());
+        return new AuthTokens(accessToken, refreshToken);
     }
 }
