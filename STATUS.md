@@ -18,20 +18,35 @@ alındı (ROADMAP A6); her adım bir ders olarak, yazılan kodun tamamı chat'te
 
 ## Active task
 
-_None._ Sıradaki: **S1** — Boot iskeleti ve auto-configuration.
+_None._ Sıradaki: **S2** — PostgreSQL + Flyway: DataSource / HikariCP auto-config'i, `V1__create_users.sql`.
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
 | Phase 0 — Bootstrap | ✅ (A6 ile yeniden bu noktada) |
-| S — Spring temelleri | ⬜ |
+| S — Spring temelleri | 🔄 S1 ✅ |
 | Phase 3 — Security (R1–R9, sonra K) | ⬜ yeniden kurulacak |
 | Phase 1 — Todo Core | ⬜ |
 | Phase 2 — Workspace / Collaboration / Querying | ⬜ |
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### S1 — Boot iskeleti ✅ (2026-11-02)
+
+- `application.yaml`: actuator web exposure açıkça `health` (varsayılanla aynı; production'da yalnız health)
+- `application-local.yaml`: `local` profilinde `health, beans, conditions, configprops, env, mappings` + health detayları
+- `pom.xml`: `spring-boot-maven-plugin` → `./mvnw spring-boot:run` `local` profilini açar; jar'a etkisi yok
+- `DeeptodoApplication`: paketin component scan kökü olduğunu söyleyen yorum
+- Gözlem ✅: `--debug` condition raporu (141 positive / 86 negative / 11 unconditional); Boot 4'te auto-configuration'lar
+  teknoloji modüllerinde (`spring-boot-tomcat` 5, `spring-boot-webmvc` 6, çekirdek `spring-boot-autoconfigure` 12); JDBC
+  modülü olmadığı için `DataSourceAutoConfiguration` raporda hiç yok; starter jar'ı kod içermez (yalnız manifest / lisans);
+  264 bean; `/actuator/env` aynı key için iki kaynağı sırasıyla gösteriyor (local profili kazanır, değerler `******`)
+- Doğrulama ✅: `./mvnw verify` geçti; `spring-boot:run` → `active: "local"`, 0.74 sn; jar profilsiz → `/actuator/beans` 404,
+  health 200; jar + `SPRING_PROFILES_ACTIVE=local` → 200; + `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health` → 404 (env,
+  profil dosyasını ezer). Geçici demo (silindi): scan kökünün altındaki controller 200, `com.onatarslan.other`'daki 404;
+  kendi `JsonMapper` bean'imiz → `JacksonAutoConfiguration#jacksonJsonMapper` "found beans … myJsonMapper" ile geri çekildi
 
 ### A6 — Bootstrap'a dönüş ✅ (2026-11-02)
 
@@ -56,6 +71,7 @@ mesajlarında. Yeni adımlarda ROADMAP "ilk:" ile o kurulumun commit'ini göster
 
 - PostgreSQL (compose) host'ta `127.0.0.1:5433` → container 5432. Host 5432 bu makinede başka bir projenin (`library-postgres`) Postgres'inde; A1 (2026-10-23) ile taşındı.
 - Uygulama şu an DB'ye bağlanmıyor (S2'de bağlanacak).
+- `./mvnw spring-boot:run` `local` profiliyle açılır (pom); IntelliJ run configuration'ında Active profiles: `local`.
 
 ## Applied migrations
 

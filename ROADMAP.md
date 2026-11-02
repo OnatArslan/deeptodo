@@ -23,7 +23,7 @@ Adım bitince `[x]` yazılır; commit'ten sonra kısa SHA eklenir (2026-10-25'e 
   DB şeması (`users.password_hash`, `refresh_tokens`) olduğu gibi kalır; yeniden kurulumda kullanılır
 
 - [x] **A5** (7e9d0fd) Çalışma akışı: PR yok, `develop`'a doğrudan commit; adım Onat okuyana kadar commit edilmeden bekler
-- [x] **A6** Bootstrap'a dönüş: auth / user / common kodu, V1–V3 migration'ları ve JPA / Flyway / Security dependency'leri kaldırılır,
+- [x] **A6** (a48766b) Bootstrap'a dönüş: auth / user / common kodu, V1–V3 migration'ları ve JPA / Flyway / Security dependency'leri kaldırılır,
   local DB volume'ü sıfırlanır (Onat'ın onayıyla; migration'lar hiçbir ortama deploy edilmemişti). Önceki hal `inapp-auth-r8a` tag'inde.
   Anlatım biçimi: her adım bir ders, yazılan kodun tamamı chat'te
 
@@ -33,8 +33,8 @@ Commit edilmemiş eski user / workspace kodu `wip/user-workspace-reference` bran
 
 ## S — Spring temelleri (yeniden kurulum, 2026-11-02)
 
-- [ ] **S1** Boot iskeleti: `@SpringBootApplication`'ın üç parçası, starter'lar, auto-configuration ve condition raporu (`--debug`),
-  embedded Tomcat, actuator health, `application.yaml` ve property kaynakları (env ile ezme)
+- [x] **S1** Boot iskeleti: `@SpringBootApplication`'ın üç parçası, starter'lar, auto-configuration ve condition raporu (`--debug`),
+  embedded Tomcat, actuator health, `application.yaml` ve property kaynakları (env ile ezme); `local` profili (gözlem endpoint'leri)
 - [ ] **S2** PostgreSQL + Flyway: driver + `spring-boot-starter-flyway`, DataSource / HikariCP auto-config'i, `V1__create_users.sql`
   (isimli constraint'ler, CHECK'ler), `flyway_schema_history` ve checksum; uygulanmış migration neden değişmez
 - [ ] **S3** JPA entity: `spring-boot-starter-data-jpa`, `BaseEntity` (UUID v7), `User` + `UserStatus`, `UserRepository`;
