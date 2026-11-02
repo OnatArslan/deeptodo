@@ -16,9 +16,9 @@ Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authen
 
 ## Active task
 
-_None._ Sıradaki: **R8** — `POST /api/auth/refresh`: cookie'deki token'ı koşullu UPDATE ile `used` işaretle, aynı ailede halef üret; Testcontainers + eşzamanlı refresh testi.
+_None._ Sıradaki: **R8b** — Testcontainers altyapısı (gerçek PostgreSQL) + aynı refresh token'la eşzamanlı isteklerde yalnız birinin kazandığını gösteren otomatik test.
 
-Ara durum (R7 sonrası): login access token (gövde) + refresh token (cookie) veriyor; refresh token DB'de duruyor ama kullanan endpoint yok (R8). Access token 15 dk sonra dolunca hâlâ yeniden login gerekir.
+Ara durum (R8a sonrası): login → access token + refresh cookie; access token dolunca `POST /api/auth/refresh` parolasız yeniler (her refresh token tek kullanımlık). Kullanılmış token tekrar gelince yalnız 401; ailenin revoke'u (reuse detection) R9'da.
 
 Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
 
@@ -33,6 +33,15 @@ Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reu
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
+
+### R8a — Refresh rotation ✅ (2026-10-31)
+
+- `POST /api/auth/refresh` (gövde yok, cookie `refresh_token`; `permitAll`) → login ile aynı cevap: yeni access token gövdede + yeni refresh cookie
+- `RefreshTokenRepository.markUsed`: `update … set used_at = :now where token_hash = :hash and used_at is null and revoked_at is null and expires_at > :now` → 1 = bu istek aldı, 0 = red. Ardından `findByTokenHash` (user, aile) ve aynı ailede halef (yeni ttl, kayan süre)
+- `AuthService.refresh` tek `@Transactional`: markUsed + kullanıcı ACTIVE kontrolü + halef INSERT birlikte commit / rollback. Kapalı hesapta rollback → token harcanmaz. Kullanıcı durumu yalnız refresh'te kontrol edilir (R5 kararıyla uyumlu)
+- `auth/exception/InvalidRefreshTokenException` → `AuthExceptionHandler` 401 `Invalid refresh token` (cookie yok / bilinmiyor / kullanılmış / revoke / süresi dolmuş / kapalı hesap hepsi aynı; sebep DEBUG log'da)
+- `SecurityConfig`: `/api/auth/**` için `BearerTokenResolver` null döner. Bulunan sorun: istemci süresi dolmuş access token'ı header'da gönderirse `BearerTokenAuthenticationFilter` (permitAll'dan önce) isteği 401 ile kesiyordu; refresh hiç çalışmazdı
+- Manual smoke ✅: refresh 200 + yeni cookie; SQL sırası UPDATE → SELECT token → SELECT user → INSERT; ailede eski satır used, halef unused; yeni access token ile `/me` 200; aynı (eski) token tekrar 401; cookie yok 401; uydurma 401; T2 → T3 zinciri aynı ailede; süresi dolmuş 401; revoke edilmiş 401; kapalı hesap 401 ve `used_at` null kaldı (rollback), hesap açılınca aynı token 200; süresi dolmuş Bearer header + geçerli cookie: düzeltmeden önce 401, sonra 200; bozuk header ile login 200; aynı token ile 10 paralel refresh → 1×200 + 9×401, ailede 2 satır (1 used); refresh medyan 0.019 s
 
 ### R7 — Refresh token üretimi ✅ (2026-10-31)
 
@@ -195,11 +204,12 @@ Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` 
 common/config     JpaAuditingConfig, ClockConfig
 common/domain     BaseEntity, AuditableEntity
 common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
-auth/             AuthService (register, login → AuthTokens), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails, CurrentUser (Bearer isteğin principal'ı)
+auth/             AuthService (register, login, refresh → AuthTokens), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails, CurrentUser (Bearer isteğin principal'ı)
 auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (RSAKey signing key + kid, JwtEncoder, JwtDecoder + validator'lar), JwtProperties, RefreshTokenProperties
-auth/domain       RefreshToken, RefreshTokenRepository
-auth/token        AccessTokenService (claim'ler), AccessToken, RefreshTokenService (üretim, SHA-256), CurrentUserConverter (Jwt → CurrentUser, DB'siz)
-auth/web          AuthController (POST /api/auth/register, /login), AuthExceptionHandler, SecurityProblemHandler, dto/RegisterRequest|Response, dto/LoginRequest|Response
+auth/domain       RefreshToken, RefreshTokenRepository (markUsed: koşullu UPDATE)
+auth/exception    InvalidRefreshTokenException
+auth/token        AccessTokenService (claim'ler), AccessToken, RefreshTokenService (üretim, rotation, SHA-256), CurrentUserConverter (Jwt → CurrentUser, DB'siz)
+auth/web          AuthController (POST /api/auth/register, /login, /refresh), AuthExceptionHandler, SecurityProblemHandler, dto/RegisterRequest|Response, dto/LoginRequest|Response
 user/             UserService (create, findByEmail, getById, changePasswordHash)
 user/web          UserController (GET /api/users/me), dto/MeResponse
 user/domain       User (email, displayName, passwordHash, status; normalizeEmail, changePasswordHash), UserStatus, UserRepository, UserExampleListener (örnek)

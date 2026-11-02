@@ -3,6 +3,7 @@ package com.onatarslan.deeptodo.auth.web;
 import com.onatarslan.deeptodo.auth.AuthService;
 import com.onatarslan.deeptodo.auth.AuthTokens;
 import com.onatarslan.deeptodo.auth.config.RefreshTokenProperties;
+import com.onatarslan.deeptodo.auth.exception.InvalidRefreshTokenException;
 import com.onatarslan.deeptodo.auth.token.AccessToken;
 import com.onatarslan.deeptodo.auth.web.dto.LoginRequest;
 import com.onatarslan.deeptodo.auth.web.dto.LoginResponse;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,7 +48,21 @@ public class AuthController {
     // 200: access token gövdede (istemci Authorization header'ına koyar), refresh token Set-Cookie'de.
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        AuthTokens tokens = authService.login(request.email(), request.password());
+        return tokenResponse(authService.login(request.email(), request.password()));
+    }
+
+    // Gövde yok: kimlik cookie'deki refresh token. Cevap login ile aynı şekilde (yeni access token + yeni cookie);
+    // tarayıcı eski cookie'nin üstüne yazar. Cookie yoksa 401 (aynı cevap: AuthExceptionHandler).
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refresh(
+            @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new InvalidRefreshTokenException("refresh token cookie is missing");
+        }
+        return tokenResponse(authService.refresh(refreshToken));
+    }
+
+    private ResponseEntity<LoginResponse> tokenResponse(AuthTokens tokens) {
         AccessToken accessToken = tokens.accessToken();
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(tokens.refreshToken()).toString())

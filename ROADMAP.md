@@ -42,8 +42,9 @@ tarzı bir kimlik sağlayıcı kullanacak. Kendi auth'umuzun son hali bir git ta
 - [x] **R4** (06b419e) Access token: RS256 key çifti (`secrets/`), `JwtEncoder`, claim'ler (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`), header'da `kid`; login token döner
 - [x] **R5** (683bee4) Resource server: public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `CurrentUser`, `GET /api/users/me`; DEACTIVATED kullanıcının token'ı süresi dolana kadar geçerli (DB'siz doğrulama, karar 2026-10-31), kapatma R10'da
 - [x] **R6** (887cd93) Key rotation: `RSAKey` + `kid` (thumbprint), key'ler properties'e doğrudan bağlanır, 2048-bit kontrolü; rotation = yeni key + yeniden başlatma (eski token 401 → refresh ile yenilenir, geçiş süresi yok)
-- [x] **R7** Refresh token: opaque 256-bit, DB'de SHA-256 hash (V3 tablosu), HttpOnly + SameSite=Strict + Path cookie; login'de üretim (register token üretmez, spec §10)
-- [ ] **R8** Rotation: `POST /api/auth/refresh`, koşullu `markUsed` + Testcontainers altyapısı ve eşzamanlı refresh testi (spec §15 istisnası)
+- [x] **R7** (2e07e09) Refresh token: opaque 256-bit, DB'de SHA-256 hash (V3 tablosu), HttpOnly + SameSite=Strict + Path cookie; login'de üretim (register token üretmez, spec §10)
+- [x] **R8a** Rotation: `POST /api/auth/refresh`, koşullu `markUsed`, aynı ailede halef, kullanıcı ACTIVE kontrolü; auth uçlarında Bearer header'ı yok sayılır
+- [ ] **R8b** Testcontainers altyapısı + eşzamanlı refresh testi (spec §15 istisnası)
 - [ ] **R9** Reuse detection: kullanılmış token tekrar gelirse ailenin revoke'u; reddetmeyi sonuç nesnesiyle dönmek ve transaction sınırı
 - [ ] ~~**R10**~~ Logout + hesap: _(Keycloak'a geçişte K serisinde)_ `POST /api/auth/logout`, `PATCH / DELETE /api/users/me`; hesap kapatınca bütün refresh token'ların revoke'u
 - [ ] ~~**R11**~~ Login rate limit: _(Keycloak brute-force koruması)_ in-memory, email + IP, 429 + `Retry-After`

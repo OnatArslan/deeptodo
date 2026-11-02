@@ -20,7 +20,11 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.util.Map;
 
@@ -39,6 +43,15 @@ public class SecurityConfig {
         // CurrentUser'ı görür. Authority'leri yine o kurar: scope / scp claim'i yok → boş, artı FACTOR_BEARER.
         JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
         authenticationConverter.setJwtPrincipalConverter(currentUserConverter);
+
+        // /api/auth/** isteklerinde Authorization header'ı okunmaz. BearerTokenAuthenticationFilter permitAll'dan önce
+        // çalışır: header varsa token'ı doğrulamaya çalışır ve geçersizse isteği orada 401 ile keser. İstemciler header'ı
+        // çoğunlukla her isteğe ekler; refresh de tam access token'ın süresi dolduğunda çağrılır. Auth uçlarının hiçbiri
+        // access token istemediği için orada header'ı yok saymak güvenli.
+        RequestMatcher authEndpoints = PathPatternRequestMatcher.withDefaults().matcher("/api/auth/**");
+        DefaultBearerTokenResolver headerResolver = new DefaultBearerTokenResolver();
+        BearerTokenResolver bearerTokenResolver = request ->
+                authEndpoints.matches(request) ? null : headerResolver.resolve(request);
 
         http
                 // Sunucu kimseyi hafızasında tutmaz: HttpSession açılmaz, JSESSIONID cookie'si yazılmaz.
@@ -61,7 +74,8 @@ public class SecurityConfig {
                         // Load balancer / container healthcheck'i kimliksiz çağırır.
                         .requestMatchers("/actuator/health").permitAll()
                         // Kaydolan / giriş yapan kişinin henüz kimliği yok; yalnız bu yöntem + yol açık (GET değil).
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        // Refresh de açık: access token'ın süresi dolmuş olabilir; kimlik cookie'deki refresh token'la gelir.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
                         // Bir hata oluşunca istek /error'a forward edilir ve zincirden tekrar geçer. O aşamada kullanıcı
                         // anonim olabilir; /error'u da korursak asıl hata (ör. 403, 404) kaybolur, istemci 401 görür.
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
@@ -74,6 +88,7 @@ public class SecurityConfig {
                 // AuthorizationFilter'da 401 alır. Token geçersizse 401'i filter'ın kendisi döner, entry point
                 // olarak bizim handler'ımızla (verilmezse Spring'in gövdesiz BearerTokenAuthenticationEntryPoint'i).
                 .oauth2ResourceServer(resourceServer -> resourceServer
+                        .bearerTokenResolver(bearerTokenResolver)
                         .authenticationEntryPoint(problemHandler)
                         .jwt(jwt -> jwt
                                 .decoder(jwtDecoder)

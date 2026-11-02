@@ -3,6 +3,7 @@ package com.onatarslan.deeptodo.auth.token;
 import com.onatarslan.deeptodo.auth.config.RefreshTokenProperties;
 import com.onatarslan.deeptodo.auth.domain.RefreshToken;
 import com.onatarslan.deeptodo.auth.domain.RefreshTokenRepository;
+import com.onatarslan.deeptodo.auth.exception.InvalidRefreshTokenException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,10 +42,35 @@ public class RefreshTokenService {
     // Login'de çağrılır: yeni bir aile (oturum) başlatır. Dönen ham değer yalnız cookie'ye yazılır; DB'de hash'i kalır.
     @Transactional
     public String issueForNewFamily(UUID userId) {
-        String rawToken = generate();
+        return issue(userId, UUID.randomUUID(), clock.instant());
+    }
+
+    // Rotation (spec §7.9): gelen token'ı kullanılmış işaretle, aynı ailede halefini üret. Her refresh token tek
+    // kullanımlık; istemci her seferinde yenisini alır. Çağıranın transaction'ına katılır (AuthService.refresh):
+    // sonradan bir şey ters giderse markUsed da geri alınır, token harcanmamış olur.
+    @Transactional
+    public Rotation rotate(String rawToken) {
+        String tokenHash = hash(rawToken);
         Instant now = clock.instant();
-        repository.save(new RefreshToken(userId, UUID.randomUUID(), hash(rawToken), now, now.plus(properties.ttl())));
+
+        if (repository.markUsed(tokenHash, now) == 0) {
+            // R9: "kullanılmış" durumu burada ayırt edilip ailenin tamamı revoke edilecek (reuse detection).
+            throw new InvalidRefreshTokenException("refresh token is unknown, used, revoked or expired");
+        }
+        // UPDATE başarılıysa satır var; user ve aile bilgisi için okunur.
+        RefreshToken used = repository.findByTokenHash(tokenHash).orElseThrow();
+        String successor = issue(used.getUserId(), used.getFamilyId(), now);
+        return new Rotation(used.getUserId(), successor);
+    }
+
+    // Halefin ömrü yeniden ttl (kayan süre): kullanıcı 14 günde bir uygulamayı açtığı sürece oturum sürer.
+    private String issue(UUID userId, UUID familyId, Instant now) {
+        String rawToken = generate();
+        repository.save(new RefreshToken(userId, familyId, hash(rawToken), now, now.plus(properties.ttl())));
         return rawToken;
+    }
+
+    public record Rotation(UUID userId, String successor) {
     }
 
     // 32 byte → base64url (padding'siz) → 43 karakter; cookie'ye ve URL'e kaçış gerektirmeden yazılabilir.

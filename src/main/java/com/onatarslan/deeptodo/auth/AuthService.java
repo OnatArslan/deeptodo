@@ -1,18 +1,21 @@
 package com.onatarslan.deeptodo.auth;
 
+import com.onatarslan.deeptodo.auth.exception.InvalidRefreshTokenException;
 import com.onatarslan.deeptodo.auth.token.AccessToken;
 import com.onatarslan.deeptodo.auth.token.AccessTokenService;
 import com.onatarslan.deeptodo.auth.token.RefreshTokenService;
 import com.onatarslan.deeptodo.user.UserService;
 import com.onatarslan.deeptodo.user.domain.User;
+import com.onatarslan.deeptodo.user.domain.UserStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-// Authentication use-case'leri: register ve login. Login access token + refresh token döner.
+// Authentication use-case'leri: register, login, refresh. Login ve refresh access token + refresh token döner.
 @Service
 public class AuthService {
 
@@ -66,5 +69,21 @@ public class AuthService {
         AccessToken accessToken = accessTokenService.issue(user.id());
         String refreshToken = refreshTokenService.issueForNewFamily(user.id());
         return new AuthTokens(accessToken, refreshToken);
+    }
+
+    // Parolasız yenileme: cookie'deki refresh token → yeni access token + yeni refresh token.
+    // Tek transaction: markUsed, halefin INSERT'i ve kullanıcı kontrolü birlikte commit olur ya da birlikte geri alınır.
+    // Login'den farkı: argon2 yok, transaction kısa (birkaç SQL + ~1 ms imza).
+    //
+    // Kullanıcı durumuna burada bakılır (her API isteğinde değil, R5 kararı): kapatılan hesap en geç access token'ın
+    // süresi dolunca dışarıda kalır, çünkü yenileyemez. Reddedince rollback: token harcanmamış olarak kalır.
+    @Transactional
+    public AuthTokens refresh(String rawRefreshToken) {
+        RefreshTokenService.Rotation rotation = refreshTokenService.rotate(rawRefreshToken);
+        User user = userService.getById(rotation.userId());
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new InvalidRefreshTokenException("user is not active");
+        }
+        return new AuthTokens(accessTokenService.issue(user.getId()), rotation.successor());
     }
 }

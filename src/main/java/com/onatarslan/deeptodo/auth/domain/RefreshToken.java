@@ -53,4 +53,12 @@ public class RefreshToken extends BaseEntity {
         this.createdAt = createdAt;
         this.expiresAt = expiresAt;
     }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public UUID getFamilyId() {
+        return familyId;
+    }
 }
