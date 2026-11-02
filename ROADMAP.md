@@ -1,11 +1,13 @@
 # DeepToDo — Roadmap
 
 Hedef: projeyi bugünkü noktadan **public HTTPS'te çalışan v1**'e getirmek (spec §17), sonra Redis / Kafka öğrenme modülleri (spec §2.1).
-Authentication uygulamada, Spring Security ile **sıfırdan, adım adım** yeniden kurulur (karar 2026-10-25, spec §10).
+Projenin asıl amacı Spring Boot, Spring Data JPA ve Spring Security'yi öğrenmek. **2026-11-02'de proje bootstrap'a geri alındı**
+(A6): her şey S ve R adımlarında, yazılan kodun tamamı chat'te ders gibi anlatılarak yeniden kurulur. Önceki kurulumun son hali
+`inapp-auth-r8a` tag'inde (yalnız referans; adımlarda "ilk:" ile o kurulumun commit'i verilir).
 
 Kurallar (`CLAUDE.md`): her prompt bir adım, her adım `develop`'a tek commit (~300 satır / 10 dosya). Claude adımı yazar ve anlatır;
 Onat sağ panelde okur, bir sonraki "devam"da commit + push edilir.
-🔬 işaretli adımlarda anlatım **derin** yapılır (`CLAUDE.md` → "Derin anlatım").
+Her adım bir ders (`CLAUDE.md` → "Anlatım: her adım bir ders"); 🔬 işaretli adımlarda wire seviyesi ve hata modları da gösterilir.
 Adım bitince `[x]` yazılır; commit'ten sonra kısa SHA eklenir (2026-10-25'e kadarki adımlarda PR numarası). Sıra değişikliği Onat'ın kararıdır.
 
 İşaretler: `[ ]` yapılmadı · `[x]` tamamlandı · ⚠️ Onat'ın onayı gerekir · 🔬 derin anlatım
@@ -21,37 +23,57 @@ Adım bitince `[x]` yazılır; commit'ten sonra kısa SHA eklenir (2026-10-25'e 
   DB şeması (`users.password_hash`, `refresh_tokens`) olduğu gibi kalır; yeniden kurulumda kullanılır
 
 - [x] **A5** (7e9d0fd) Çalışma akışı: PR yok, `develop`'a doğrudan commit; adım Onat okuyana kadar commit edilmeden bekler
+- [x] **A6** Bootstrap'a dönüş: auth / user / common kodu, V1–V3 migration'ları ve JPA / Flyway / Security dependency'leri kaldırılır,
+  local DB volume'ü sıfırlanır (Onat'ın onayıyla; migration'lar hiçbir ortama deploy edilmemişti). Önceki hal `inapp-auth-r8a` tag'inde.
+  Anlatım biçimi: her adım bir ders, yazılan kodun tamamı chat'te
 
 Geçmiş (bırakılan yol, kayıt için): Keycloak'a geçiş planı (#4), kendi auth kodunun kaldırılması (#5), Keycloak local kurulum (#7),
 Keycloak resource server sıkılaştırma (#8). Kod git geçmişinde; kavramlar (`kid`, `iss` / `aud`, key rotation) R adımlarında kullanılır.
 Commit edilmemiş eski user / workspace kodu `wip/user-workspace-reference` branch'inde referans olarak duruyor.
 
+## S — Spring temelleri (yeniden kurulum, 2026-11-02)
+
+- [ ] **S1** Boot iskeleti: `@SpringBootApplication`'ın üç parçası, starter'lar, auto-configuration ve condition raporu (`--debug`),
+  embedded Tomcat, actuator health, `application.yaml` ve property kaynakları (env ile ezme)
+- [ ] **S2** PostgreSQL + Flyway: driver + `spring-boot-starter-flyway`, DataSource / HikariCP auto-config'i, `V1__create_users.sql`
+  (isimli constraint'ler, CHECK'ler), `flyway_schema_history` ve checksum; uygulanmış migration neden değişmez
+- [ ] **S3** JPA entity: `spring-boot-starter-data-jpa`, `BaseEntity` (UUID v7), `User` + `UserStatus`, `UserRepository`;
+  `ddl-auto: validate`, `open-in-view: false`; persistence context, entity yaşam döngüsü, dirty checking, derived query
+- [ ] **S4** Auditing ve zaman: `AuditableEntity`, JPA auditing + `Clock` bean'i, `Instant` / `timestamptz`
+- [ ] **S5** Hata sözleşmesi: `ProblemDetail`, `@RestControllerAdvice`, HTTP bilmeyen domain exception'ları (404 / 403 / 409),
+  validation ve 405 cevaplarının ProblemDetail'i
+
 ## R — Authentication (spec §10, Phase 3) 🔬
 
-**Karar (2026-10-31):** auth'u öğrenmek için R7–R9 (refresh token) burada yazılır; ardından kendi auth'umuz kaldırılır ve
-**Keycloak**'a geçilir (K serisi, R9'dan sonra planlanır). Gerekçe: Onat gerçek projelerde kendi auth'unu yazmayacak, Keycloak
-tarzı bir kimlik sağlayıcı kullanacak. Kendi auth'umuzun son hali bir git tag'i ile işaretlenir; K adımlarının anlatımında
-"burada biz kendimiz şöyle yapmıştık" karşılaştırması yapılır. R10 / R11 Keycloak'ta karşılanır.
+**Karar (2026-10-31):** auth'u öğrenmek için R1–R9 (refresh token dahil) burada yazılır; ardından kendi auth'umuz kaldırılır ve
+**Keycloak**'a geçilir (K serisi). Gerekçe: Onat gerçek projelerde kendi auth'unu yazmayacak, Keycloak tarzı bir kimlik sağlayıcı
+kullanacak. Kendi auth'umuzun son hali bir git tag'i ile işaretlenir; K adımlarının anlatımında "burada biz kendimiz şöyle
+yapmıştık" karşılaştırması yapılır. R10 / R11 Keycloak'ta karşılanır.
 
-- [x] **R1** (82087a7) Spring Security'yi ekle: dependency'nin tek başına yaptığı (her şey kilitli, üretilmiş parola), sonra kendi `SecurityFilterChain`'imiz:
-  stateless, CSRF kararı, health açık, 401 / 403 ProblemDetail (`SecurityProblemHandler`). Filter zincirini TRACE log ile gözlemleme
-- [x] **R2** (2961fd0) Parola + register: `PasswordEncoder` (delegating, bcrypt), `User.passwordHash`, `POST /api/auth/register` (email normalize, tekil → 409)
-- [x] **R2b** (9e02bc7) Argon2: yeni hash'ler argon2id (OWASP: 19 MiB, 2 tur, 1 hat), eski `{bcrypt}` hash'ler doğrulanabilir kalır; BouncyCastle dependency'si
-- [x] **R3** (72afcec) Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; timing attack koruması; yanlış parola / bilinmeyen email aynı 401;
-  login'de eski bcrypt hash'in argon2'ye yükseltilmesi (`UserDetailsPasswordService`)
-- [x] **R4** (06b419e) Access token: RS256 key çifti (`secrets/`), `JwtEncoder`, claim'ler (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`), header'da `kid`; login token döner
-- [x] **R5** (683bee4) Resource server: public key ile `JwtDecoder`, `iss` / `aud` / `exp` doğrulaması, `CurrentUser`, `GET /api/users/me`; DEACTIVATED kullanıcının token'ı süresi dolana kadar geçerli (DB'siz doğrulama, karar 2026-10-31), kapatma R10'da
-- [x] **R6** (887cd93) Key rotation: `RSAKey` + `kid` (thumbprint), key'ler properties'e doğrudan bağlanır, 2048-bit kontrolü; rotation = yeni key + yeniden başlatma (eski token 401 → refresh ile yenilenir, geçiş süresi yok)
-- [x] **R7** (2e07e09) Refresh token: opaque 256-bit, DB'de SHA-256 hash (V3 tablosu), HttpOnly + SameSite=Strict + Path cookie; login'de üretim (register token üretmez, spec §10)
-- [x] **R8a** Rotation: `POST /api/auth/refresh`, koşullu `markUsed`, aynı ailede halef, kullanıcı ACTIVE kontrolü; auth uçlarında Bearer header'ı yok sayılır
-- [ ] **R8b** Testcontainers altyapısı + eşzamanlı refresh testi (spec §15 istisnası)
+- [ ] **R1** Spring Security: dependency'nin tek başına yaptığı (her şey kilitli, üretilmiş parola), sonra kendi `SecurityFilterChain`'imiz:
+  stateless, CSRF kararı, health açık, 401 / 403 ProblemDetail; filter zincirini TRACE log ile gözlemleme _(ilk: 82087a7)_
+- [ ] **R2** Register: `PasswordEncoder` (Argon2id + bcrypt doğrulama), `UserService.create` (`@Transactional`), `POST /api/auth/register`,
+  DTO validation, email normalize, tekil email → 409 (yarışta DB UNIQUE) _(ilk: 2961fd0, 9e02bc7)_
+- [ ] **R3** Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; timing attack koruması; aynı 401;
+  eski hash'in yükseltilmesi (`UserDetailsPasswordService`) _(ilk: 72afcec)_
+- [ ] **R4** Access token: RSA key'lerin properties'e bağlanması, `RSAKey` + `kid` (thumbprint), `JwtEncoder`, claim'ler
+  (`iss`, `sub`, `aud`, `iat`, `exp`, `jti`); login token döner _(ilk: 06b419e, 887cd93)_
+- [ ] **R5** Resource server: `JwtDecoder` (yalnız RS256, `iss` / `aud` / `exp`), `CurrentUser` + converter (DB'siz), `GET /api/users/me` _(ilk: 683bee4)_
+- [ ] **R6** Refresh token: migration `refresh_tokens`, opaque 256-bit, DB'de SHA-256 hash, HttpOnly + SameSite=Strict + Path cookie _(ilk: 2e07e09)_
+- [ ] **R7** Rotation: `POST /api/auth/refresh`, koşullu `markUsed`, aynı ailede halef, kullanıcı ACTIVE kontrolü, auth uçlarında Bearer header'ı yok sayılır _(ilk: 2fb732e)_
+- [ ] **R8** Testcontainers altyapısı + eşzamanlı refresh testi (spec §15 istisnası)
 - [ ] **R9** Reuse detection: kullanılmış token tekrar gelirse ailenin revoke'u; reddetmeyi sonuç nesnesiyle dönmek ve transaction sınırı
 - [ ] ~~**R10**~~ Logout + hesap: _(Keycloak'a geçişte K serisinde)_ `POST /api/auth/logout`, `PATCH / DELETE /api/users/me`; hesap kapatınca bütün refresh token'ların revoke'u
 - [ ] ~~**R11**~~ Login rate limit: _(Keycloak brute-force koruması)_ in-memory, email + IP, 429 + `Retry-After`
 
+## K — Keycloak'a geçiş
+
+R9'dan sonra planlanır: kendi auth'umuzun tag'lenmesi, kaldırılması, Keycloak (compose, realm), resource server'ın Keycloak'a bağlanması.
+Her adımda R adımlarıyla karşılaştırma.
+
 ## W — Workspace (spec Phase 2, adım 1–3)
 
-- [ ] **W1** Workspace domain: migration `workspace_members`, entity'ler, create (workspace + ilk OWNER aynı tx), listMine, get
+- [ ] **W1** Workspace domain: migration `workspaces` + `workspace_members`, entity'ler, create (workspace + ilk OWNER aynı tx), listMine, get
 - [ ] **W2** Workspace yetki kuralları: rename / archive, üyelik yönetimi (email ile ekleme), son OWNER invariant'ı (`SELECT … FOR UPDATE`)
 - [ ] **W3** Son OWNER concurrency testi (spec §15 istisnası; Testcontainers altyapısı R8'de kurulmuş olur)
 

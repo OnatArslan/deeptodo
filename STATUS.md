@@ -6,228 +6,82 @@
 
 ## Last updated
 
-2026-10-31
+2026-11-02
 
 ## Current phase
 
-**Phase 3 — Authentication'ı sıfırdan yeniden kurma (ROADMAP A4 → R1–R11)**
+**Yeniden kurulum — S (Spring temelleri) → R (Authentication) → K (Keycloak)**
 
-Karar (2026-10-25): Keycloak denemesi (2026-10-24, K1–K2) bırakıldı; authentication uygulamada, Spring Security ile, küçük adımlarla sıfırdan kurulur (spec v5 §10). Gerekçe: öğrenme hedefi Spring Security'nin içi.
+Karar (2026-11-02): projenin asıl amacı Spring Boot, Spring Data JPA ve Spring Security'yi öğrenmek. Proje bootstrap'a geri
+alındı (ROADMAP A6); her adım bir ders olarak, yazılan kodun tamamı chat'te anlatılarak yeniden kurulur (`CLAUDE.md` →
+"Anlatım: her adım bir ders").
 
 ## Active task
 
-_None._ Sıradaki: **R8b** — Testcontainers altyapısı (gerçek PostgreSQL) + aynı refresh token'la eşzamanlı isteklerde yalnız birinin kazandığını gösteren otomatik test.
-
-Ara durum (R8a sonrası): login → access token + refresh cookie; access token dolunca `POST /api/auth/refresh` parolasız yeniler (her refresh token tek kullanımlık). Kullanılmış token tekrar gelince yalnız 401; ailenin revoke'u (reuse detection) R9'da.
-
-Referanslar: önceki kendi auth implementasyonu `679ece5` (refresh rotation, reuse detection); auth'tan önce yazılmış commit edilmemiş user / workspace kodu `wip/user-workspace-reference` branch'inde (W1–W2 ve R10'da referans).
+_None._ Sıradaki: **S1** — Boot iskeleti ve auto-configuration.
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| Phase 0 — Bootstrap | ✅ Done |
-| Phase 1 — Todo Core | ⏸ Paused (users schema done, workspace entity pending) |
+| Phase 0 — Bootstrap | ✅ (A6 ile yeniden bu noktada) |
+| S — Spring temelleri | ⬜ |
+| Phase 3 — Security (R1–R9, sonra K) | ⬜ yeniden kurulacak |
+| Phase 1 — Todo Core | ⬜ |
 | Phase 2 — Workspace / Collaboration / Querying | ⬜ |
-| Phase 3 — Security | 🔄 Authentication sıfırdan yeniden kuruluyor (R1–R11) |
 | Phase 4 — Testing + Production + Deployment | ⬜ |
 
 ## Completed tasks
 
-### R8a — Refresh rotation ✅ (2026-10-31)
+### A6 — Bootstrap'a dönüş ✅ (2026-11-02)
 
-- `POST /api/auth/refresh` (gövde yok, cookie `refresh_token`; `permitAll`) → login ile aynı cevap: yeni access token gövdede + yeni refresh cookie
-- `RefreshTokenRepository.markUsed`: `update … set used_at = :now where token_hash = :hash and used_at is null and revoked_at is null and expires_at > :now` → 1 = bu istek aldı, 0 = red. Ardından `findByTokenHash` (user, aile) ve aynı ailede halef (yeni ttl, kayan süre)
-- `AuthService.refresh` tek `@Transactional`: markUsed + kullanıcı ACTIVE kontrolü + halef INSERT birlikte commit / rollback. Kapalı hesapta rollback → token harcanmaz. Kullanıcı durumu yalnız refresh'te kontrol edilir (R5 kararıyla uyumlu)
-- `auth/exception/InvalidRefreshTokenException` → `AuthExceptionHandler` 401 `Invalid refresh token` (cookie yok / bilinmiyor / kullanılmış / revoke / süresi dolmuş / kapalı hesap hepsi aynı; sebep DEBUG log'da)
-- `SecurityConfig`: `/api/auth/**` için `BearerTokenResolver` null döner. Bulunan sorun: istemci süresi dolmuş access token'ı header'da gönderirse `BearerTokenAuthenticationFilter` (permitAll'dan önce) isteği 401 ile kesiyordu; refresh hiç çalışmazdı
-- Manual smoke ✅: refresh 200 + yeni cookie; SQL sırası UPDATE → SELECT token → SELECT user → INSERT; ailede eski satır used, halef unused; yeni access token ile `/me` 200; aynı (eski) token tekrar 401; cookie yok 401; uydurma 401; T2 → T3 zinciri aynı ailede; süresi dolmuş 401; revoke edilmiş 401; kapalı hesap 401 ve `used_at` null kaldı (rollback), hesap açılınca aynı token 200; süresi dolmuş Bearer header + geçerli cookie: düzeltmeden önce 401, sonra 200; bozuk header ile login 200; aynı token ile 10 paralel refresh → 1×200 + 9×401, ailede 2 satır (1 used); refresh medyan 0.019 s
+- Önce R8a commit edildi (`2fb732e`) ve son hal `inapp-auth-r8a` tag'i ile işaretlendi (push edildi)
+- Kaldırıldı: `auth`, `user`, `common` paketlerinin tamamı; V1–V3 migration'ları; `@ConfigurationPropertiesScan`;
+  dependency'ler: PostgreSQL driver, Flyway (+ `flyway-database-postgresql`), Data JPA, Security, BouncyCastle,
+  OAuth2 resource server; `application.yaml`'daki datasource, JPA, MVC ProblemDetail ve `deeptodo.security.*` ayarları
+- Kaldı: `DeeptodoApplication`, `contextLoads` testi, `compose.yaml` (PostgreSQL), pom'da webmvc, validation, actuator (+ test starter'ları);
+  `secrets/` (gitignore, R4'te yeniden kullanılır)
+- Local DB: `docker compose down -v` ile volume silindi, boş DB ile yeniden açıldı (Onat'ın onayıyla; migration'lar hiçbir
+  ortama deploy edilmemişti, yalnız local test verisi gitti). `library-postgres`'e dokunulmadı
+- Doğrulama ✅: `./mvnw clean verify` geçti (`contextLoads`); uygulama 0.83 sn'de açıldı, health `UP`; `/api/users/me` 404;
+  DB'de public şemada 0 tablo
 
-### R7 — Refresh token üretimi ✅ (2026-10-31)
+### Önceki kurulum (referans, `inapp-auth-r8a` tag'i)
 
-- `auth/domain/RefreshToken` (V3 `refresh_tokens`; `BaseEntity`, `user_id` scalar, `family_id`, `token_hash`, `created_at`, `expires_at`, `used_at`, `revoked_at`) + `RefreshTokenRepository`
-- `auth/token/RefreshTokenService.issueForNewFamily(userId)`: `SecureRandom` 32 byte → base64url (43 karakter) → SHA-256 hex (64 karakter) DB'ye; ham değer yalnız cookie'ye. Her login yeni `family_id` (bir aile = bir oturum). Kendi kısa transaction'ı
-- `auth/config/RefreshTokenProperties` (`deeptodo.security.refresh-token.*`): `ttl` 14 gün, `cookie-secure` (`REFRESH_COOKIE_SECURE`, local false)
-- `AuthService.login` → `AuthTokens(accessToken, refreshToken)`; `AuthController.login` access token'ı gövdede, refresh token'ı `Set-Cookie: refresh_token=…; Path=/api/auth; Max-Age=1209600; HttpOnly; SameSite=Strict` (+ `Secure` production'da) ile döner. Register token üretmez (spec §10)
-- CSRF kapalı kalır; cookie'li uçlar SameSite=Strict ile korunur (spec §10, `SecurityConfig` yorumu güncellendi)
-- Manual smoke ✅: login 200 + Set-Cookie (bayraklar yukarıdaki gibi); gövdede yalnız access token; ham token 43 karakter; DB'de `sha256(ham)` ile 1 satır, ham değerle 0 satır; hash 64 karakter, `expires_at - created_at = 14 days`, `used_at` / `revoked_at` null; iki login → iki satır, iki farklı aile; yanlış parola 401 ve satır oluşmadı; login medyan 0.065 s (argon2 + imza + INSERT); curl cookie jar ile cookie `/api/users/me`'ye eklenmedi, `/api/auth/refresh`'e eklendi (Path); `REFRESH_COOKIE_SECURE=true` → `Secure` bayrağı; register Set-Cookie döndürmüyor; access token ile `/me` 200
-
-### R6 — Key rotation ✅ (2026-10-31)
-
-- `JwtProperties`: `private-key` / `public-key` doğrudan `RSAPrivateKey` / `RSAPublicKey` (Spring Security'nin `RsaKeyConversionServicePostProcessor` converter'ları; değer dosya yolu ya da PEM metni). Elle key okuma (`RsaKeyConverters`, `open`) kalktı. Env adları: `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` (önceden `*_LOCATION`)
-- `JwtConfig` (Onat'ın önceki projesindeki yapıya göre): `RSAKey jwtSigningKey` bean'i (modulus kontrolü, ≥ 2048 bit, `kid` = RFC 7638 thumbprint) → encoder `NimbusJwtEncoder(ImmutableJWKSet)`, decoder `withPublicKey(...)` + açıkça `RS256`
-- Rotation: yeni key çifti + yeniden başlatma. Eski key'le imzalı access token 401 alır; refresh token (R7) ile yenilenir. Geçiş süresi listesi (`verification-keys`) denendi, karmaşıklığına değmediği için kaldırıldı (birden çok instance olursa gerekir)
-- Manual smoke ✅: mevcut key'le kid `oSIEKHAnOpq4…` (R4 ile aynı), `/me` 200; `alg=none` 401, exp yok 401, başka aud 401; key değişince eski token 401 `Invalid signature`, yeni token (kid `GyEl9f5W…`) 200; 1024-bit key → `JWT RSA key must be at least 2048 bits, got 1024`; eşleşmeyen çift → `do not belong to the same key pair`; eksik dosya → `Failed to bind properties under 'deeptodo.security.jwt.private-key'`; PEM metni env'den → açılır, kid aynı; bozuk PEM env'den → hata raporu placeholder'ı yazar, key log'a sızmaz (geçiş listeli sürümle denendi, binding aynı)
-
-### R5 — Resource server ✅ (2026-10-30)
-
-- `spring-boot-starter-security-oauth2-resource-server` (`spring-security-oauth2-jose`'nin yerine; onu da içerir). Zincire iki filter eklendi: `BearerTokenAuthenticationFilter` (6/11) ve `OAuth2ProtectedResourceMetadataFilter` (5/11)
-- `JwtConfig.jwtDecoder`: `NimbusJwtDecoder.withPublicKey` (yalnız RS256), validator'lar: `typ` (JWT ya da yok), exp zorunlu + exp / nbf (60 sn saat farkı payı, uygulamanın `Clock`'u), `iss`, `aud`, x5t (varsayılan; bizde sertifika yok). Key okuma yardımcı metotlara ayrıldı
-- `SecurityConfig`: `oauth2ResourceServer(jwt(decoder, converter))`, entry point `SecurityProblemHandler`; `JwtAuthenticationConverter` + `setJwtPrincipalConverter(CurrentUserConverter)` → `JwtAuthenticationToken` [principal `CurrentUser`, credentials `Jwt`, authority yalnız `FACTOR_BEARER`]
-- `auth/CurrentUser` (record, `OAuth2AuthenticatedPrincipal`, yalnız id); `auth/token/CurrentUserConverter`: `sub` → UUID → `CurrentUser` (UUID değilse `InvalidBearerTokenException`, 401). DB'ye gitmez
-- Review kararı (Onat): token doğrulamasında kullanıcı durumu DB'den kontrol edilmez (ilk sürümde her istekte `users` SELECT'i vardı, kaldırıldı). DEACTIVATED kullanıcının token'ı süresi dolana kadar (≤ 15 dk + 60 sn) geçerli; kapatma: login 401 (R3), refresh token'ların revoke'u (R10), anında iptal gerekirse `jti` denylist (G2)
-- `SecurityProblemHandler.commence`: status + `WWW-Authenticate`'i Spring'in `BearerTokenAuthenticationEntryPoint`'i yazar (`error="invalid_token"`, `error_description`, `resource_metadata`), gövde ProblemDetail (`Authentication required` / `Invalid or expired access token`)
-- Metadata (RFC 9728) `GET /.well-known/oauth-protected-resource` public; varsayılandaki yanlış `tls_client_certificate_bound_access_tokens: true` → `false`
-- `user/web/UserController` `GET /api/users/me` (`@AuthenticationPrincipal CurrentUser`) → `MeResponse {id, email, displayName}`; `UserService.getById`
-- Manual smoke ✅: token'la `/me` 200 (medyan 0.005 s); token yok 401 `Bearer resource_metadata=…`; bozuk token 401 `Malformed token`. openssl ile imzalanmış sahte token'lar: geçerli 200; exp 120 / 61 sn önce dolmuş 401 `Jwt expired at …`, 30 sn önce 200 (skew); exp yok 401 `exp is required`; başka iss / aud 401; `alg=none` 401 `Unsupported algorithm`; HS256 + public key secret (alg confusion) 401; başka private key + aynı kid 401 `Invalid signature`; gerçek token'da `sub` değiştirilmiş 401; `?access_token=` 401 (yalnız header); `sub=admin` 401 `Invalid subject`; TRACE: 11 filter. Review sonrası: `/me` başına 1 SELECT (yalnız controller), medyan 0.004 s; DEACTIVATED → aynı token `/me` 200 (bilinçli pencere), login 401; DB kapalıyken token'lı istek olmayan bir endpoint'e 404 (kimlik doğrulaması DB'siz geçti), token'sız 401, `/me` 500
-
-### R4 — Access token ✅ (2026-10-29)
-
-- `spring-security-oauth2-jose` (Spring'in `JwtEncoder`'ı + Nimbus JOSE + JWT 10.9.1); resource server starter R5'te
-- `auth/config/JwtProperties` (`deeptodo.security.jwt.*`, `@Validated`): issuer (`JWT_ISSUER`, varsayılan `http://localhost:8080`), audience `deeptodo-api`, TTL 15 dk, key yolları (`JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION`, varsayılan `file:./secrets/jwt-*.pem`)
-- `auth/config/JwtConfig`: PEM'leri `RsaKeyConverters` ile okur (PKCS#8 private, X.509 public), iki key'in modulus'u eşleşmezse açılmaz; `NimbusJwtEncoder.withKeyPair` → header `alg=RS256`, `typ=JWT`, `kid` = public key'in RFC 7638 thumbprint'i
-- `auth/token/AccessTokenService`: claim'ler `iss`, `sub` (user id), `aud`, `iat`, `exp` (+15 dk), `jti` (rastgele UUID); rol / email / üyelik yok
-- `POST /api/auth/login` → `{accessToken, tokenType: "Bearer", expiresIn: 900}`; register token dönmez (spec §10), R7'de refresh ile yeniden değerlendirilir
-- Key'ler: `secrets/`'taki 2048-bit çift (önceki implementasyondan, 2026-10-11) kullanıldı; üretim komutu `CLAUDE.md` → Çalıştırma
-- Manual smoke ✅: login 200, token 3 parça / 685 karakter / imza 256 byte; header `{"kid":"oSIEKHAnOpq4…","typ":"JWT","alg":"RS256"}`; payload'da 6 claim, `exp - iat = 900`, `sub` = `users.id`; imza `openssl dgst -sha256 -verify` ile public key'e karşı `Verified OK`; `sub`'ı değiştirilmiş payload aynı imzayla `Verification failure`; `kid` elle hesaplanan thumbprint ile aynı; iki login → aynı `kid`, farklı `jti`; yanlış parola hâlâ 401; token'lı `GET /api/users/me` 401 (resource server yok, beklenen); login ~0.063 s (argon2 + RSA imza)
-- Açılış hata modları ✅ (uygulama açılmaz, mesaj sebebi söyler): eksik key dosyası → `JWT key not found: …`; başka çiftin public key'i → `JWT public key does not match the private key`; boş issuer → `Binding to target JwtProperties failed … deeptodo.security.jwt.issuer`
-- Review sonrası: `AccessTokenIssuer` → `AccessTokenService` (`@Service`; G2'de iptal de buraya gelir); `AuthService.login` tek metot (ayrı `authenticate` yok); controller'lar `ResponseEntity<T>` döner, `@ResponseStatus` kullanılmaz (kural `CLAUDE.md` → Kod stili). Yeniden smoke ✅: register 201 (Location yok), login 200 + token, yanlış parola 401, boş alan 400, aynı email 409, DB kapalı → 500
-- Not: tek elemanlı `aud` JSON'da dizi değil string olarak yazılıyor (`"aud":"deeptodo-api"`); RFC 7519 ikisine de izin verir, doğrulayıcılar ikisini de kabul eder
-
-### R3 — Login ✅ (2026-10-28)
-
-- `POST /api/auth/login` → 200 `{userId, email}` (token R4'te); `AuthService.login` → `AuthenticationManager` (`ProviderManager`) → `DaoAuthenticationProvider` → `AppUserDetailsService` → `UserService.findByEmail` (normalize)
-- `AppUserDetails` (record, `UserDetails`): id, email, hash, `isEnabled = ACTIVE`; rol yok (authority listesi boş; Spring başarıda `FACTOR_PASSWORD` ekler)
-- Hash yükseltme: `AppUserDetailsService` aynı zamanda `UserDetailsPasswordService`; `{bcrypt}` hash'li kullanıcı doğru parolayla girince hash `{argon2}` olur (`UserService.changePasswordHash`, dirty checking)
-- Bilinmeyen email / yanlış parola / DEACTIVATED hesap → aynı 401 ProblemDetail `Invalid email or password` (`auth/web/AuthExceptionHandler`, `@RestControllerAdvice(assignableTypes = AuthController.class)`; spec §5 gereği `common`'da değil); sebep yalnız DEBUG log'da
-- Kullanıcı yüklenirken çıkan altyapı hatası (`InternalAuthenticationServiceException`) açılıp asıl exception fırlatılır: DB çökmesi 401 değil 500
-- Boot'un yedek in-memory kullanıcısı ("Using generated security password") artık oluşturulmuyor (`UserDetailsService` bean'i var)
-- Review düzeltmeleri: `AuthenticatedUser` → `AppUserDetails` (yüklendiği anda henüz doğrulanmamış bir aday; eski isim yanıltıcıydı), `AuthUserDetailsService` → `AppUserDetailsService`; `UserService.register` → `UserService.create` (register use-case'i `AuthService`'te, user feature yalnız satırı oluşturur); login 401 eşlemesi `GlobalExceptionHandler`'dan `auth/web/AuthExceptionHandler`'a taşındı
-- Manual smoke ✅: doğru parola 200, büyük harfli email 200; yanlış parola / bilinmeyen email 401 (aynı gövde); süreler (15'er istek, medyan) doğru 0.054 s, yanlış parola 0.050 s, bilinmeyen email 0.049 s, validation 400 0.002 s; DEACTIVATED hesapta doğru / yanlış parola ikisi de 401 ve 0.052 s (log: "account is disabled"); `{bcrypt}` kullanıcı: yanlış parola 401 + hash değişmedi, doğru parola 200 + hash `{argon2}$argon2id$...` (105 karakter) + `updated_at` güncellendi, ikinci login'de yükseltme yok; DB kapalı → 500 (Hikari 30 s bekledikten sonra); sarmal açılmadığında aynı durum 401 `Invalid email or password` (geçici değişiklikle denendi, geri alındı); `GET /api/auth/login` 401; boş alanlar 400; register hâlâ 201
-- Bilinen sızıntı: `{bcrypt}` hash'li hesapta yanlış parola ~0.095 s (argon2'de ~0.05 s) — süre, hesabın eski hash'li olduğunu ele verir; o kullanıcılar bir kez girince kapanır
-- Gözlem: Spring Security, `UserDetailsService` bean'inden ayrıca bir global `AuthenticationManager` kurar (log: "Global AuthenticationManager configured with UserDetailsService bean"); login'de kullanılan bizim açıkça kurduğumuz `AuthenticationManager` bean'i
-
-### R2b — Argon2 ✅ (2026-10-27)
-
-- `PasswordEncoder`: `DelegatingPasswordEncoder("argon2", {argon2, bcrypt})`; `PasswordEncoderFactories` yerine yalnız kullanılan iki algoritma (fabrika `{noop}`, `{MD4}` gibi güvensiz id'leri de tanır)
-- Argon2id parametreleri OWASP'ın önerdiği en düşük ayar: salt 16 byte, hash 32 byte, bellek 19 MiB, 2 tur, 1 paralel hat → `{argon2}$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>` (105 karakter)
-- `org.bouncycastle:bcprov-jdk18on:1.86` (runtime): Spring'in `Argon2PasswordEncoder`'ı hesaplamayı BouncyCastle ile yapar
-- `RegisterRequest`: 72 byte kontrolü kaldırıldı (argon2'de bcrypt'in 72 byte sınırı yok), parola 8–128 karakter
-- R2 commit'indeki (`2961fd0`) `AuthController` import satırının eksik `;`'i düzeltildi (doğrulamadan sonra, commit'ten önce dosyada değişmişti); `CLAUDE.md`'ye "commit'ten hemen önce yeniden derle" kuralı
-- Manual smoke ✅: kayıt 201, hash `{argon2}$argon2id$...`; ısınmadan sonra tek kayıt ~0.06 s, 20 eşzamanlı kayıtta 0.15 / 0.17 / 0.18 s (en hızlı / medyan / en yavaş); DB'de eski 11 `{bcrypt}` hash duruyor (R3'te login'de yükseltilecek)
-- Ölçülemeyen: eşzamanlı hash'lemenin bellek etkisi (`/actuator/metrics` security zincirinde kapalı); hesapla her hash ~19 MiB geçici bellek
-
-### R2 — Parola + register ✅ (2026-10-25)
-
-- `User.passwordHash` (V1'deki `password_hash` kolonu), constructor hash'i hazır alır; entity Spring Security'yi bilmez
-- `PasswordEncoder` bean'i: `PasswordEncoderFactories.createDelegatingPasswordEncoder()` → `{bcrypt}$2a$10$<22 karakter salt><31 karakter hash>` (68 karakter)
-- `auth/AuthService.register`: hash'leme transaction'ın dışında (bcrypt ~100 ms), sonra `user/UserService.register`
-- `UserService.register`: email normalize (lowercase) → `existsByEmail` ön kontrolü → `saveAndFlush`; yarışta DB'nin `uq_users_email` ihlali yalnız o constraint adıyla eşleşirse 409'a çevrilir
-- `POST /api/auth/register` → 201 `{id, email, displayName}`; `SecurityConfig`'te yalnız POST + bu yol `permitAll`
-- `RegisterRequest`: `@Email`, parola 8–72 karakter + `@AssertTrue` ile en fazla 72 byte (bcrypt sınırı)
-- Manual smoke ✅: kayıt 201; büyük harfli aynı email 409; aynı parola iki farklı hash (salt); geçersiz email / kısa parola / boş isim 400; 40 karakter / 80 byte parola 400; isim strip ediliyor; `GET /api/auth/register` 401; 10 eşzamanlı aynı email → 1×201 + 9×409 (2'si ön kontrolü geçip DB UNIQUE'e takıldı, log'da SQLState 23505); kayıt ~0.1–0.18 s (bcrypt), validation hatası ~0.003 s
-- Bilinçli: email'deki baştaki / sondaki boşluk `@Email`'e takılır (400), normalize edilmez; register "bu email kayıtlı" bilgisini verir (user enumeration, kayıt akışında yaygın kabul)
-
-### R1 — Spring Security + kendi SecurityFilterChain ✅ (2026-10-25)
-
-- `spring-boot-starter-security` eklendi. Önce config'siz varsayılan gözlemlendi: 17 filter'lık zincir, üretilmiş parola, curl'e 401 + `WWW-Authenticate: Basic` + `JSESSIONID` cookie, tarayıcıya 302 → `/login` form sayfası, Basic auth ile doğru parola 404 (geçti), health açık (Boot actuator kuralı), CSRF token'sız POST → CsrfFilter 403 verir ama `/error` forward'ı da korumalı olduğu için istemci 401 görür
-- `auth/config/SecurityConfig`: stateless (session / `JSESSIONID` yok), CSRF kapalı (kimlik header'da; refresh cookie'si R7'de yeniden değerlendirilir), logout ve request cache filter'ları kapalı, `/actuator/health` ve `ERROR` dispatch açık, gerisi `authenticated()`; 401 / 403 → `SecurityProblemHandler`
-- `auth/web/SecurityProblemHandler`: 401 → `WWW-Authenticate: Bearer` + ProblemDetail; 403 → ProblemDetail
-- Manual smoke ✅: zincir 9 filter (`DisableEncodeUrl`, `WebAsyncManagerIntegration`, `SecurityContextHolder`, `HeaderWriter`, `SecurityContextHolderAwareRequest`, `Anonymous`, `SessionManagement`, `ExceptionTranslation`, `Authorization`); health 200; korumalı istek 401 problem+json (curl, tarayıcı, Basic header'lı POST hepsi); `/login` artık yok (401); session cookie yazılmıyor; TRACE ile tek isteğin filter filter yolu gözlemlendi
-
-### A5 — Commit bazlı çalışma akışı ✅ (2026-10-25)
-
-- PR akışı kaldırıldı: her adım `develop`'a doğrudan tek commit. Adım bitince commit edilmeden bekler (sağ paneldeki diff'te görünsün diye); Onat'ın bir sonraki "devam"ında commit + push (`CLAUDE.md` → "Commit akışı")
-
-### A4 — Auth sıfırlama ✅ (2026-10-25)
-
-- Kaldırıldı: Keycloak (compose servisi, `keycloak/realm-deeptodo.json`, `docker/postgres-init`, local `keycloak` database'i ve rolü), `auth` paketinin tamamı (`SecurityConfig`, `SecurityProblemHandler`), `spring-boot-starter-security`, `spring-boot-starter-security-oauth2-resource-server`, `spring-security-test`, `spring.security.*` ayarı, `UserController` (`/api/users/me`) ve `UserService`
-- Kaldı: DB şeması (V1–V3; `users.password_hash`, `refresh_tokens` R adımlarında kullanılacak), `common/error`, `User` entity'si
-- Manual smoke ✅: uygulama açılıyor, Flyway 4 migration'ı doğruladı (local DB'deki V4 önceki testlerden), health UP, `/api/users/me` → 404 ProblemDetail (security yok, endpoint yok)
-
-### K2 — Resource server sıkılaştırma ✅ (2026-10-25) — bırakılan Keycloak yolu, A4'te kaldırılır
-
-- Realm: `deeptodo-api` client'ı (token istemez; yalnız audience adı) + `deeptodo-web` / `deeptodo-dev`'de `oidc-audience-mapper` → access token'da `aud: deeptodo-api`
-- `application.yaml`: `spring.security.oauth2.resourceserver.jwt.audiences: deeptodo-api` (`KEYCLOAK_AUDIENCE`) → Boot, varsayılan validator'lara (exp/nbf, iss) audience validator'ı ekler
-- Keycloak'a ulaşılamadığı için token hakkında karar verilemezse (JWKS indirilemez) 503 + `Retry-After: 30` ProblemDetail: `BearerTokenAuthenticationFilter`'ın failure handler'ı `AuthenticationServiceException`'ı yeniden fırlatmak yerine `SecurityProblemHandler`'a yollar
-- Manual smoke ✅: `aud`'suz token → 401 `The aud claim is not valid`; realm güncellendikten sonra 404 (geçti); key'ler alındıktan sonra Keycloak kapalı → geçerli token geçer; Keycloak kapalıyken tanınmayan `kid` → 503 + `Retry-After`; uygulama Keycloak'ı hiç görmeden kapalıysa → 500, Keycloak gelince kendiliğinden düzelir (TD-13)
-- Key rotation ✅: yeni key provider (priority 200) → yeni `kid`'li token, çalışan uygulama yeniden başlatılmadan kabul etti (tanınmayan kid → JWKS yeniden indirildi); eski key'li token da geçerli. Silinen key'in token'ı JWKS cache süresi boyunca kabul edilmeye devam etti (beklenen; key iptali anlık değil)
-
-### K1 — Keycloak local kurulum ✅ (2026-10-24) — bırakılan Keycloak yolu, A4'te kaldırılır
-
-- `compose.yaml`: `keycloak` servisi (`quay.io/keycloak/keycloak:26.8.1`, `start-dev --import-realm`, host `127.0.0.1:8180`, yönetim portu 9000'de health, bash `/dev/tcp` healthcheck, `depends_on: postgres healthy`)
-- Keycloak'ın verisi aynı PostgreSQL sunucusunda ayrı `keycloak` database'i / kullanıcısı: `docker/postgres-init/01-create-keycloak-db.sql` (yalnız boş volume'de çalışır)
-- `keycloak/realm-deeptodo.json`: realm `deeptodo` (self-registration açık, email = username, duplicate email yok), client'lar `deeptodo-web` (public, authorization code + PKCE S256) ve `deeptodo-dev` (public, password grant — yalnız local curl), test kullanıcıları alice / bob
-- Manual smoke ✅: realm import log'u; discovery (`issuer = http://localhost:8180/realms/deeptodo`); JWKS (RS256 imza key'i + RSA-OAEP şifreleme key'i); password grant ile token; token'sız istek 401, geçerli token 404 (olmayan endpoint, yani kimlik doğrulandı), imzası bozuk token 401 `invalid_token`
-- Hata modu ✅: uygulama Keycloak'ı hiç görmeden Keycloak kapanırsa token'lı istek 500; key'ler bir kez alındıktan sonra Keycloak kapanırsa doğrulama devam eder (404)
-- Not: access token'da `aud` claim'i yok → K2'de audience mapper + doğrulama
-
-### Refactor — `SecurityProblemHandler` `ProblemDetail` kullanıyor ✅ (2026-10-24)
-
-- Elle kurulan `Map` yerine Spring'in `ProblemDetail` tipi; serialize işi Boot'un `JsonMapper`'ında. Filter zinciri 401 / 403 gövdesi artık MVC tarafındaki ProblemDetail cevaplarıyla aynı şekilde (aynı alanlar, varsayılan `about:blank` type yazılmıyor)
-- Manual smoke ✅: token'sız istek → 401 + `WWW-Authenticate` + `application/problem+json`
-
-### (Keycloak geçişi) Kendi authentication kodunu kaldır ✅ (2026-10-24)
-
-- Silindi: `AuthService`, `AuthTokens`, `AppUserDetails(Service)`, `auth/jwt` (token üretimi, RSA key yükleme, decoder), `auth/refresh` (rotation, reuse), `AuthController` + DTO'lar, `AuthExceptionHandler`, `RefreshTokenCookies`, `EmailAlreadyExist` / `InvalidRefreshToken` exception'ları; `SecurityConfig`'ten `PasswordEncoder`, `AuthenticationManager`, `BearerTokenResolver`, özel `JwtAuthenticationConverter`
-- `application.yaml`: `deeptodo.security.*` (JWT key yolları, refresh cookie) yerine `spring.security.oauth2.resourceserver.jwt.issuer-uri` (`KEYCLOAK_ISSUER_URI`, varsayılan `http://localhost:8180/realms/deeptodo`)
-- `User`: `passwordHash` alanı çıktı; `users.password_hash` kolonu ve `refresh_tokens` tablosu K3 migration'ına kadar DB'de duruyor (uygulanmış migration değiştirilmez)
-- Manual smoke ✅: uygulama açılıyor, health UP; token yok → 401 problem+json; eski `/api/auth/login` → 401 (artık korumalı bir bilinmeyen URL); Keycloak kapalıyken token'lı istek → 500 (beklenen ara durum)
-
-### A2 — Hata sözleşmesi ✅ (2026-10-23)
-
-- Filter zinciri 401 / 403 → `auth/web/SecurityProblemHandler` (`application/problem+json`; `WWW-Authenticate` header'ı Spring'in Bearer entry point'i yazmaya devam eder)
-- Uygulama hataları → `common/error/GlobalExceptionHandler`: `ResourceNotFoundException` 404, `ForbiddenOperationException` 403, `BusinessRuleViolationException` 409 (exception'lar HTTP bilmez, spec §13). İlk kullanıcıları A3 / A5'te gelir
-- `spring.mvc.problemdetails.enabled: true`: validation 400, bozuk JSON 400, 405 de ProblemDetail
-- Manual smoke ✅: token yok / bozuk token → 401 problem+json + WWW-Authenticate; boş alanlarla register → 400 problem+json; bozuk JSON → 400; `DELETE /api/auth/login` → 405; geçerli token → 200
-
-### DT-001 — Bootstrap baseline ✅ (2026-10-01)
-
-- `compose.yaml`: PostgreSQL `17.6`, named volume `postgres-data`, `pg_isready` healthcheck
-- `pom.xml`: data-jpa, PostgreSQL driver (runtime), `spring-boot-starter-flyway` + `flyway-database-postgresql`, actuator
-- `application.yaml`: env-overridable datasource (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`), `ddl-auto: validate`, `open-in-view: false`
-- `src/main/resources/db/migration/` created
-- Manual smoke: app starts, Flyway creates `flyway_schema_history`, `/actuator/health` → `UP`
+A1–A5, R1–R8a: hata sözleşmesi, filter chain, register (Argon2id), login (`DaoAuthenticationProvider`), RS256 access token,
+resource server, refresh token ve rotation. Her adımın ayrıntılı doğrulama kaydı o tag'deki `STATUS.md`'de ve commit
+mesajlarında. Yeni adımlarda ROADMAP "ilk:" ile o kurulumun commit'ini gösterir.
 
 ## Local environment
 
 - PostgreSQL (compose) host'ta `127.0.0.1:5433` → container 5432. Host 5432 bu makinede başka bir projenin (`library-postgres`) Postgres'inde; A1 (2026-10-23) ile taşındı.
-- `DB_URL` varsayılanı `jdbc:postgresql://localhost:5433/deeptodo`.
+- Uygulama şu an DB'ye bağlanmıyor (S2'de bağlanacak).
 
 ## Applied migrations
 
-| Migration | Purpose |
-|---|---|
-| V1 | `users` (incl. `password_hash varchar(255)`), `workspaces`; named PKs, no time defaults, `~ '\S'` blank checks |
-| V2 | `users.version` kolonu kaldırıldı (spec §21; `@Version` yalnız todos / workspace_members'ta) |
-| V3 | `refresh_tokens` (spec §7.9, halef bağlantısı yok) + `user_id`, `family_id` index'leri — R7–R9 yeniden kurulumunda kullanılır |
+_Yok_ (S2'de V1).
 
 ## Current schema
 
-`users`, `workspaces`, `refresh_tokens` (V1–V3).
-
-Entity hiyerarşisi: `BaseEntity` (yalnız `id`, UUID v7) → `AuditableEntity` (`created_at` `updatable=false`, `updated_at`; Spring Data auditing). `@Version` base class'ta değil; ihtiyaç duyan entity (Todo, WorkspaceMember) kendisi tanımlar.
+_Boş._
 
 ## Package layout
 
 ```text
-common/config     JpaAuditingConfig, ClockConfig
-common/domain     BaseEntity, AuditableEntity
-common/error      GlobalExceptionHandler, ResourceNotFoundException, ForbiddenOperationException, BusinessRuleViolationException
-auth/             AuthService (register, login, refresh → AuthTokens), AppUserDetailsService (UserDetailsService + UserDetailsPasswordService), AppUserDetails, CurrentUser (Bearer isteğin principal'ı)
-auth/config       SecurityConfig (filter chain, AuthenticationManager → DaoAuthenticationProvider, PasswordEncoder: argon2 + bcrypt), JwtConfig (RSAKey signing key + kid, JwtEncoder, JwtDecoder + validator'lar), JwtProperties, RefreshTokenProperties
-auth/domain       RefreshToken, RefreshTokenRepository (markUsed: koşullu UPDATE)
-auth/exception    InvalidRefreshTokenException
-auth/token        AccessTokenService (claim'ler), AccessToken, RefreshTokenService (üretim, rotation, SHA-256), CurrentUserConverter (Jwt → CurrentUser, DB'siz)
-auth/web          AuthController (POST /api/auth/register, /login, /refresh), AuthExceptionHandler, SecurityProblemHandler, dto/RegisterRequest|Response, dto/LoginRequest|Response
-user/             UserService (create, findByEmail, getById, changePasswordHash)
-user/web          UserController (GET /api/users/me), dto/MeResponse
-user/domain       User (email, displayName, passwordHash, status; normalizeEmail, changePasswordHash), UserStatus, UserRepository, UserExampleListener (örnek)
+com.onatarslan.deeptodo   DeeptodoApplication
 ```
 
 ## Known technical debt
 
 | ID | Debt | Planned phase |
 |---|---|---|
-| TD-3 | `UserExampleListener` ve `UserRepository`'deki deneme sorguları örnek amaçlı; temizlenecek | Phase 3 |
-| TD-14 | Süresi dolmuş / kullanılmış refresh token satırları silinmiyor; tablo büyür (temizlik job'ı ya da Keycloak geçişinde tablonun kaldırılması) | K serisi |
-| TD-12 | Validation 400 cevabı hangi alanın hatalı olduğunu söylemiyor (`detail: Invalid request content.`); beklenmeyen 500'ler hâlâ Boot'un `/error` JSON'u (ProblemDetail değil) | Phase 4 (E2 ile) |
+| TD-12 | (S5'ten sonra geçerli olacak) Validation 400 cevabı hangi alanın hatalı olduğunu söylemiyor; beklenmeyen 500'ler Boot'un `/error` JSON'u | Phase 4 (E2 ile) |
 
 ## Current learning focus
 
-- Spring Security 7 içeriden: filter chain, `AuthenticationManager` / `DaoAuthenticationProvider`, `SecurityContext`
-- JWT (RS256, `kid`, `iss` / `aud` / `exp`) ve key rotation ✅
-- Refresh token rotation, reuse detection, transaction sınırları ve concurrency
+- Spring Boot çekirdeği: auto-configuration, bean'ler, configuration properties
+- Spring Data JPA: persistence context, entity yaşam döngüsü, transaction
+- Spring Security 7 içeriden: filter chain, `AuthenticationManager`, `SecurityContext`, JWT, refresh token
 
 ## Locked scope decisions
 
@@ -244,6 +98,6 @@ Do not casually reopen these during implementation:
 - register does not auto-create Workspace
 - tests mainly Phase 4
 - no AuditLog in v1
-- authentication written in-app with Spring Security (Keycloak tried and dropped 2026-10-25) — **2026-10-31: R7–R9 bitince Keycloak'a geçilir (ROADMAP R bölümündeki karar)**
+- authentication written in-app with Spring Security (Keycloak tried and dropped 2026-10-25) — **2026-10-31: R1–R9 bitince Keycloak'a geçilir (ROADMAP R bölümündeki karar)**
 - Redis / Kafka only for spec §2.1 learning modules; no microservices
 - final v1 includes Docker + public HTTPS deployment

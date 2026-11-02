@@ -3,9 +3,13 @@
 DeepToDo, workspace tabanlı collaborative task management backend'i (Java 21, Spring Boot 4.1).
 Proje **agentic** geliştirilir: `ROADMAP.md`'deki adımları Claude uygular (kod, doğrulama, `develop`'a commit).
 
-Normal agentic projelerden tek farkı: büyük ve kapsamlı değişiklikler yerine **her prompt'ta tek bir küçük adım**
-ve o adımın **chat'te anlatılması**. Onat kodu okur, "bu neden böyle?" diye sorar; Claude anlatır.
-Onat'ın her adımı anlayabilmesi, adımın çalışması kadar önemlidir.
+Projenin asıl amacı **Spring Boot, Spring Data JPA ve Spring Security'yi öğrenmek**; uygulama bunun aracı.
+Normal agentic projelerden farkı: büyük değişiklikler yerine **her prompt'ta tek bir küçük adım** ve o adımın
+**chat'te bir ders gibi anlatılması** (yazılan kodun tamamı chat'te gösterilir). Onat kodu okur, "bu neden böyle?" diye
+sorar; Claude anlatır. Onat'ın her adımı anlayabilmesi, adımın çalışması kadar önemlidir.
+
+Proje 2026-11-02'de bootstrap'a geri alındı ve bu anlatım biçimiyle baştan kuruluyor; önceki kurulumun son hali
+`inapp-auth-r8a` tag'inde (yalnız referans).
 
 Güncel durum ve yol haritası (her oturumda yüklenir):
 
@@ -96,45 +100,58 @@ Doğrulama: çalıştırılan kontroller ve sonuçları.
 Bilinçli olarak yapılmayanlar: seçilmeyen alternatifler, kapsam dışı bırakılanlar.
 ```
 
-### Chat anlatımı (her adımın sonunda)
+### Anlatım: her adım bir ders (karar 2026-11-02)
 
-Kısa bir rapor değil, öğretici bir anlatım; ama tek adım, tek konu:
+Her adım, o adımda yazılan kod üzerinden konunun kendisini anlatır. Kurallar Onat'ın kendi konu anlatımı tercihlerinden
+(spring-tutor) alındı; tek fark, örneklerin domain'i DeepToDo'nun kendisi.
 
-1. **Ne yaptım** — 2–3 cümle; değişikliklerin sağ panelde commit edilmemiş olarak beklediği.
-2. **Nasıl çalışıyor** — runtime'da ne oluyor: hangi istek, hangi sınıf, hangi sırayla. Gerekirse küçük text diyagram.
-3. **Neden böyle** — önemli kararlar ve seçilmeyen alternatifler (her biri bir iki cümle).
-4. **Okuma rehberi** — Onat'ın hangi dosyayı hangi sırayla okuması gerektiği (`dosya:satır` linkleri).
-5. **Kendin dene** — 1–3 komut ve beklenen sonuç.
-6. **Sıradaki adım** — roadmap'teki bir sonraki adımın tek satırlık özeti.
+**Okuyucu.** Onat son sınıf bilgisayar mühendisliği öğrencisi ve backend geliştirici. Java'yı biliyor; Spring'in ana
+konularını (Core & Boot, Web, Data, Security) az çok biliyor. Temel kavramlar baştan anlatılmaz, ama **bildiğini varsaymak
+anlatımı kısaltmak için sebep değildir**: konu yine kapsamlı anlatılır, yüzeysel ya da eksik öğrenilmiş yerler doldurulur.
 
-### Derin anlatım — Authentication, Redis, Kafka (ROADMAP'te 🔬)
+**Kapsam.** Anlatım, aynı konu için başka bir kaynağa bakma ihtiyacı bırakmaz.
+- Konunun gerçek projede karşıma çıkacak bütün yüzleri: temel kullanım, sık kullanılan varyantlar ve API'ler, önemli
+  seçenekler ve config'ler, edge case'ler, production kodunda nasıl kullanıldığı.
+- **Kod küçük, anlatım geniş.** Adımın kodu ~300 satırda kalır; projede kullanmadığımız varyantlar chat'te kod bloğu olarak
+  anlatılır, commit edilmez.
+- "Bunu bilmeyen biri ilk nerede hata yapar?" sorusu her derste cevaplanır.
+- Konuyu anlamak için gereken komşu kavramlar kısaca açıklanır, yalnız adı geçirilmez.
+- Bir Java kavramı gerekiyorsa bir iki cümleyle hatırlatılır; Java konusu anlatılmaz.
 
-Bu üç konu projenin en zor ve en çok öğreten kısmıdır; "çalışıyor" yetmez, Onat onları işletebilecek ve hata
-ayıklayabilecek kadar anlamalıdır. Bu adımlarda chat anlatımı yukarıdaki altı bölümü korur ama **derinleşir**:
+**Kod.**
+- **Yazılan her kod chat'te.** Adımda eklenen / değişen kodun tamamı chat'te kod bloğu olarak gösterilir ve anlatılır;
+  sağ paneldeki diff ikinci kaynaktır. Kodun yanında `dosya:satır` linki.
+- Tek örnekle yetinilmez: basit kullanımdan gerçekçi kullanıma doğru ilerlenir; gerekiyorsa config ve `application.yaml` ile
+  birlikte.
+- Yerine göre naif / yanlış versiyon ile düzeltilmiş versiyon yan yana; mümkünse yanlışı gerçekten çalıştırıp sonucu göster.
+- Chat'teki kod derlenebilir olur: önemli import ve annotation'lar atlanmaz. Yorumlar "neden böyle"yi anlatır.
+- Proje dışı varyant örneklerinde domain konuya göre seçilir: konuyu en iyi anlatan, küçük ve kendi içinde anlaşılır senaryo.
+- Örnek kod gereksiz bölünmez (login ve register için ayrı servis yerine tek `AuthService`), ama gerçekten ayrı sorumluluklar
+  da birleştirilmez (`JwtConfig`, `SecurityConfig`'in içine gömülmez).
 
-1. **Problem ve alternatif** — Bu teknoloji hangi problemi çözüyor; kendimiz yazsaydık ne yazacaktık
-   (auth için: framework'ün hazır verdiği ile bizim yazdığımız; Keycloak denemesinde aynı işin nasıl yapıldığı).
-   Neyi kazandık, neyi kaybettik.
-2. **Kavram modeli** — Temel kavramlar ve birbirleriyle ilişkisi, kendi terimleriyle
-   (Spring Security: SecurityFilterChain ve filter sırası, Authentication, AuthenticationManager / Provider,
-   SecurityContext, JWT claim'leri, token ailesi; Redis: key, veri yapıları, TTL, tek thread modeli;
-   Kafka: topic, partition, offset, consumer group, delivery semantics).
-3. **Protokol / wire seviyesi** — Ağda gerçekte ne gidip geliyor. Auth: HTTP istek / cevap header'ları
-   (`Authorization`, `WWW-Authenticate`, `Set-Cookie` flag'leri), decode edilmiş token'ın claim'leri tek tek,
-   DB'ye yazılan satırlar. Redis: çalışan komutlar
-   (`redis-cli MONITOR` çıktısıyla). Kafka: kaydın key / value / header'ları, offset commit'i.
-4. **Runtime sırası** — Bir isteğin bizim kodumuzdan dış sisteme ve geri dönüşü; hangi sınıf, hangi ağ çağrısı,
-   hangi sırayla. Sequence diyagramı (text).
-5. **Hata modları** — Dış sistem çökerse, yavaşlarsa, ağ koparsa, mesaj iki kez gelirse ne olur; kodumuz nasıl davranır.
-   Mümkünse **denenerek gösterilir** (container durdurulur, sonuç gösterilir).
-6. **Konfigürasyon** — Eklenen her ayarın ne yaptığı; local ile production arasında neden farklı olduğu.
-7. **Kendin gözlemle** — Onat'ın kendi bakabileceği araçlar ve komutlar (`curl -v`, token decode,
-   `logging.level.org.springframework.security=TRACE` ile filter zinciri, `psql` ile ilgili tablolar, `redis-cli`,
-   `kafka-console-consumer`, ilgili log satırları).
-8. **Kontrol soruları** — 3–5 soru.
+**Spring'in içi.** Bizim kodu Spring'in kim üzerinden, ne zaman çağırdığı söylenir (hangi interface, varsayılan
+implementasyon, auto-configuration). Internal detaya yalnız gözlemlenen bir davranışı ya da tuzağı açıklamak için girilir:
+`@Transactional`'ın proxy üzerinden çalıştığını bilmek self-invocation sorununu açıklamaya yeter, CGLIB'in class üretme
+detayına girilmez. Mümkün olduğunda davranış çalıştırılarak gösterilir (log, SQL, curl çıktısı).
 
-Anlatım uzunsa birkaç mesaja bölünebilir; "bir mesajda tek konu" kuralı adımın alt konuları için esner.
-Commit mesajı da bu adımlarda aynı derinliğin kısa özetini taşır.
+**Versiyon.** Java 21, Spring Boot 4.x, Framework 7, Security 7. Annotation / Java config ve `application.yaml`; XML config
+istenmedikçe gösterilmez. Eski ya da deprecated bir API gösterilirse belirtilir ve güncel karşılığı verilir. Sürüme duyarlı
+bir davranışta resmi Spring dokümantasyonu (ya da kaynak kodu) ile doğrulanır.
+
+**Yapı.** Konuya göre belirlenir, her ders sabit bir şablona sokulmaz. Sabit olanlar: başta ne değiştiği (sağ panelde
+commit edilmemiş); sonda "Kendin dene" (1–3 komut, beklenen sonuç) ve sıradaki adımın tek satırlık özeti.
+
+**Uzun ders.** Tek mesaja sığmayacaksa başta söylenir ve plan verilir: kaç mesaj, her biri neyi kapsıyor (en fazla 4).
+Sonraki parça Onat "sonraki" yazınca gelir ("devam" commit demektir). **Sığdırmak için anlatım sıkıştırılmaz.**
+
+**Sorular.** Dar bir soruya (tek API, tek hata, "bu neden böyle?") kısa ve doğrudan cevap verilir. Sorudaki yanlış bir
+varsayım önce düzeltilir. Soru belirsizse en olası yorum seçilir, varsayım bir cümleyle belirtilip devam edilir.
+Egzersiz, ödev ya da pratik görev verilmez.
+
+**Auth / Redis / Kafka (🔬) derslerine ayrıca:** problem ve alternatif (kendimiz yazsaydık ne yazardık; Keycloak'ta aynı iş),
+wire seviyesi (HTTP header'ları, decode edilmiş token claim'leri, DB satırları, Redis komutları, Kafka kayıtları), hata
+modlarının denenerek gösterilmesi (container durdurulur, sonuç gösterilir), eklenen her ayarın local / production farkı,
+Onat'ın kendi gözlem komutları, 3–5 kontrol sorusu.
 
 ### Commit
 
@@ -149,8 +166,8 @@ Commit mesajı da bu adımlarda aynı derinliğin kısa özetini taşır.
 `PROJECT_SPEC.md` bağlayıcıdır. Kapsam değişikliği normal bir refactor gibi yapılmaz: önce etkisini açıkla, karar Onat'ın.
 `STATUS.md`'deki "Locked scope decisions" uygulama sırasında yeniden açılmaz.
 
-Authentication şu an uygulamada, Spring Security ile yazılıyor (spec §10, karar 2026-10-25). Karar 2026-10-31: R7–R9
-(refresh token) burada öğrenilmek için yazılır, sonra kendi auth'umuz kaldırılıp Keycloak'a geçilir (ROADMAP R bölümü).
+Authentication önce uygulamada, Spring Security ile yazılır (spec §10, karar 2026-10-25). Karar 2026-10-31: R1–R9
+(refresh token dahil) burada öğrenilmek için yazılır, sonra kendi auth'umuz kaldırılıp Keycloak'a geçilir (ROADMAP R bölümü).
 Keycloak adımlarında anlatım, aynı işi R adımlarında kendimiz nasıl yaptığımızla karşılaştırır.
 
 Redis ve Kafka yalnız spec §2.1'deki **öğrenme modülleri** use-case'leri için kullanılır; "production gibi dursun" diye
@@ -247,7 +264,7 @@ docker compose up -d        # local PostgreSQL (+ G adımlarından sonra Redis, 
 
 Local PostgreSQL host'ta `localhost:5433`'te (5432 bu makinede başka bir projede). `DB_URL` varsayılanı buna göre.
 
-JWT imza key'leri (R4) repoda değil; `secrets/` gitignore'da. Dosyalar yoksa uygulama açılmaz. Bir kez üret:
+JWT imza key'leri (R4'ten itibaren gerekir) repoda değil; `secrets/` gitignore'da. Dosyalar yoksa uygulama açılmaz. Bir kez üret:
 
 ```bash
 mkdir -p secrets
@@ -259,6 +276,5 @@ openssl pkey -in secrets/jwt-private.pem -pubout -out secrets/jwt-public.pem
 
 ## Cevap biçimi
 
-Türkçe; Java/Spring/SQL terimleri İngilizce. Her adımın sonunda "Chat anlatımı" yapısı. Onat bir şeyin nedenini
+Türkçe; Java/Spring/SQL terimleri İngilizce. Her adım "Anlatım: her adım bir ders" bölümüne göre anlatılır. Onat bir şeyin nedenini
 sorduğunda: kısa cevap → runtime'da ne olduğu → koddaki yeri; framework'ü sihir gibi anlatma. Bir mesajda tek konu.
-Auth / Redis / Kafka adımlarında (🔬) "Derin anlatım" bölümü geçerlidir.

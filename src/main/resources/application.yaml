@@ -1,39 +1,3 @@
 spring:
   application:
     name: deeptodo
-
-  datasource:
-    # Default'lar compose.yaml'daki local PostgreSQL'e karsilik gelir (host portu 5433); prod'da env variable ile ezilir.
-    url: ${DB_URL:jdbc:postgresql://localhost:5433/deeptodo}
-    username: ${DB_USERNAME:deeptodo}
-    password: ${DB_PASSWORD:deeptodo}
-
-  jpa:
-    # Schema'nin sahibi Flyway; Hibernate yalniz entity <-> tablo uyumunu kontrol eder.
-    hibernate:
-      ddl-auto: validate
-    open-in-view: false
-
-  mvc:
-    # Validation (400), 405 gibi Spring MVC hataları da ProblemDetail formatında dönsün.
-    problemdetails:
-      enabled: true
-
-deeptodo:
-  security:
-    jwt:
-      # iss / aud: R5'te doğrulayıcı aynı değerleri bekler. Production'da public URL (E4).
-      issuer: ${JWT_ISSUER:http://localhost:8080}
-      audience: deeptodo-api
-      # Kısa ömür: access token iptal edilemez (G2'ye kadar), çalınırsa en fazla bu kadar işe yarar.
-      access-token-ttl: 15m
-      # Key'ler repoda değil: local'de secrets/ (gitignore), production'da env (dosya yolu ya da PEM metninin kendisi).
-      # Üretimi: CLAUDE.md → Çalıştırma.
-      private-key: ${JWT_PRIVATE_KEY:file:./secrets/jwt-private.pem}
-      public-key: ${JWT_PUBLIC_KEY:file:./secrets/jwt-public.pem}
-    refresh-token:
-      # Uzun ömür: kullanıcı bu süre boyunca parola girmeden oturumda kalır. İptal edilebilir (DB'de satır), access
-      # token gibi süresini beklemek gerekmez.
-      ttl: 14d
-      # Local HTTP'de false; production'da (HTTPS) true (E4).
-      cookie-secure: ${REFRESH_COOKIE_SECURE:false}
