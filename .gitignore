@@ -34,3 +34,6 @@ build/
 
 ### Secrets (JWT keys etc.) ###
 secrets/
+
+### macOS ###
+.DS_Store
