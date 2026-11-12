@@ -1,16 +1,17 @@
 # DeepToDo — Status
 
-> `PROJECT_SPEC.md` hedefi, bu dosya repository'nin şu anki gerçek durumunu gösterir. Her adımın review'ı bitince güncellenir.
+> [docs/spec](docs/spec/00-genel-bakis.md) hedefi, bu dosya repository'nin şu anki gerçek durumunu gösterir. Her adımın review'ı bitince güncellenir.
 
 ## Last updated
 
-2026-11-11
+2026-11-12
 
 ## Current phase
 
-**Sıfırdan, Onat'ın yazdığı küçük proje (spec v6).** Karar (2026-11-11): proje küçültüldü (workspace / üyelik / atama yok,
+**Sıfırdan, Onat'ın yazdığı küçük proje (spec v7, `docs/spec/`).** Karar (2026-11-11): proje küçültüldü (workspace / üyelik / atama yok,
 kişisel todo + project + tag + auth) ve repo tamamen boşaltıldı. Kodun tamamını Onat yazar; Claude görev kartı verir ve
-review eder.
+review eder. 2026-11-12: spec domain'i anlatan, SQL'siz, entity başına bir dosyalık bir dokümana dönüştü
+(`docs/spec/`, Obsidian'da kopyası).
 
 ## Active task
 

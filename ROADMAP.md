@@ -1,6 +1,7 @@
 # DeepToDo — Roadmap
 
-Hedef: `PROJECT_SPEC.md` v6'daki küçük projeyi **Onat'ın kendi yazmasıyla** v1'e getirmek (spec §11).
+Hedef: [docs/spec](docs/spec/00-genel-bakis.md)'teki küçük projeyi **Onat'ın kendi yazmasıyla** v1'e getirmek
+([bitti tanımı](docs/spec/07-kalite.md)). Her adımın kuralları, adımın spec dosyasında (dosya başındaki "Adımlar" satırı).
 Claude her adımı bir görev kartıyla tanımlar, Onat yazar ve commit eder, Claude review eder (`CLAUDE.md` → "Çalışma biçimi").
 
 Bir adım tek bir şey öğretir ve ~300 satırı geçmez. Adım review'dan geçince `[x]` + commit SHA'sı yazılır. Sıra değişikliği Onat'ın kararıdır.
@@ -42,7 +43,7 @@ Geçmiş: 2026-11-11'e kadarki workspace tabanlı büyük sürüm git geçmişin
 
 ## Q — Test ve paket
 
-- [ ] **Q1** Testcontainers altyapısı + spec §10'daki entegrasyon testleri (auth akışı, sahiplik, eşzamanlı refresh, constraint'ler, optimistic locking)
+- [ ] **Q1** Testcontainers altyapısı + [spec 07](docs/spec/07-kalite.md)'deki entegrasyon testleri (auth akışı, sahiplik, eşzamanlı refresh, constraint'ler, optimistic locking)
 - [ ] **Q2** OpenAPI (springdoc) + Bearer security scheme
 - [ ] **Q3** Dockerfile (multi-stage, non-root) + compose'a app servisi + README (çalıştırma, tasarım kararları) → v1
 

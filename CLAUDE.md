@@ -3,7 +3,7 @@
 DeepToDo, kişisel görev yönetimi REST API'si (Java 21, Spring Boot 4.1). Amacı Onat'ın Spring Boot, Spring Data JPA ve
 Spring Security'yi **kendi yazdığı** bir projeyle öğrenmesi ve gösterebilmesi.
 
-**Karar (2026-11-11):** proje küçültüldü (spec v6) ve repo boşaltıldı. **Kodu Onat yazar.** Claude adımları tanımlar,
+**Karar (2026-11-11):** proje küçültüldü (spec v6, 2026-11-12'de `docs/spec/` olarak v7) ve repo boşaltıldı. **Kodu Onat yazar.** Claude adımları tanımlar,
 yazılanı çalıştırıp review eder ve "neden böyle"yi anlatır. Önceki büyük sürüm git geçmişinde (yalnız referans).
 
 Güncel durum ve yol haritası (her oturumda yüklenir):
@@ -12,7 +12,13 @@ Güncel durum ve yol haritası (her oturumda yüklenir):
 
 @ROADMAP.md
 
-Hedef kapsam `PROJECT_SPEC.md`'de. Doküman ile kod çelişirse sessizce düzeltme; çelişkiyi açıkça söyle.
+Hedef kapsam ve domain kuralları [docs/spec/](docs/spec/00-genel-bakis.md)'te (SQL yok; her alanın kuralı ve nedeni).
+Bir adımın görev kartı, o adımın spec dosyasındaki kuralları koda dökme işidir.
+Doküman ile kod çelişirse sessizce düzeltme; çelişkiyi açıkça söyle.
+
+**Spec'in iki kopyası var:** ana kopya repoda (`docs/spec/`), aynısı Obsidian vault'unda
+(`~/Desktop/notes/plan/java-spring/deeptodo-spec/`). Claude spec'i değiştirince iki kopyayı birlikte günceller. Kopyalar
+farklılaşmışsa (Onat Obsidian'da düzenlemiş olabilir) üzerine yazmadan önce farkı gösterir ve hangisinin doğru olduğunu sorar.
 
 ---
 
@@ -25,7 +31,7 @@ Hedef kapsam `PROJECT_SPEC.md`'de. Doküman ile kod çelişirse sessizce düzelt
 
 **Claude proje koduna yazmaz.** İstisnalar:
 - Onat açıkça isterse ("bunu sen yaz", "düzelt").
-- `ROADMAP.md`, `STATUS.md`, `CLAUDE.md`, `PROJECT_SPEC.md`.
+- `ROADMAP.md`, `STATUS.md`, `CLAUDE.md`, `docs/spec/` (ve Obsidian kopyası).
 - Doğrulama için geçici değişiklik: yapılır, sonucu gösterilir, geri alınır ve geri alındığı söylenir.
 
 Review'da önerilen düzeltme chat'te küçük bir kod parçası olarak gösterilir; uygulayan Onat'tır.
