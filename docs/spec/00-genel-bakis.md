@@ -1,7 +1,7 @@
 # DeepToDo Spec — 00 Genel bakış
 
 > Spec v7 (2026-11-12). SQL içermez; her alanın sağlaması gereken kuralları ve nedenlerini anlatır.
-> Ana kopya repoda (`docs/spec/`), aynısı Obsidian'da (`notes/plan/java-spring/deeptodo-spec/`).
+> Ana kopya repoda (`docs/spec/`), aynısı Obsidian'da (`notes/project/deeptodo/spec/`).
 
 ## Bu spec nasıl okunur
 

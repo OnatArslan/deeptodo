@@ -17,7 +17,7 @@ Bir adımın görev kartı, o adımın spec dosyasındaki kuralları koda dökme
 Doküman ile kod çelişirse sessizce düzeltme; çelişkiyi açıkça söyle.
 
 **Spec'in iki kopyası var:** ana kopya repoda (`docs/spec/`), aynısı Obsidian vault'unda
-(`~/Desktop/notes/plan/java-spring/deeptodo-spec/`). Claude spec'i değiştirince iki kopyayı birlikte günceller. Kopyalar
+(`~/Desktop/notes/project/deeptodo/spec/`). Claude spec'i değiştirince iki kopyayı birlikte günceller. Kopyalar
 farklılaşmışsa (Onat Obsidian'da düzenlemiş olabilir) üzerine yazmadan önce farkı gösterir ve hangisinin doğru olduğunu sorar.
 
 ---
