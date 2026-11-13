@@ -1,6 +1,6 @@
 # DeepToDo Spec — 05 Tag ve etiketleme (TodoTag)
 
-> Adım: **T4** (filtre ve yükleme T5'te). Genel kurallar: [00-genel-bakis](00-genel-bakis.md).
+> Adımlar: **J4**, **J5** (filtre ve yükleme), **S6** (sahiplik ve aynı sahip FK'leri). Genel kurallar: [00-genel-bakis](00-genel-bakis.md).
 
 ## Tag
 
@@ -92,7 +92,7 @@ Todo  1 ──── N  TodoTag  N ──── 1  Tag
 
 - TodoTag → Todo ve TodoTag → Tag: `@ManyToOne`, LAZY. İlişkinin sahibi (FK'ler) TodoTag'dedir.
 - Todo → TodoTag koleksiyonu (`@OneToMany(mappedBy)`): todo cevabında tag'ler gösterildiği için **gerekebilir**. Tutup
-  tutmamak T4'ün karar noktasıdır. Tutulursa nasıl yükleneceği (N+1) T5'in konusudur.
+  tutmamak J4'ün karar noktasıdır. Tutulursa nasıl yükleneceği (N+1) J5'in konusudur.
 - Tag → TodoTag koleksiyonu: tutulmaz. "Bu tag hangi todo'larda" sorusu todo listesinin `tagId` filtresinin işi.
 
 ## Kararlar

@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-11-12
+2026-11-13
 
 ## Current phase
 
@@ -15,7 +15,9 @@ review eder. 2026-11-12: spec domain'i anlatan, SQL'siz, entity başına bir dos
 
 ## Active task
 
-**P1** — kurulum. Onat'ın başlatmasını bekliyor ("sıradaki" → görev kartı).
+**C1** — kurulum (DB'siz Boot iskeleti). Onat'ın başlatmasını bekliyor ("sıradaki" → görev kartı).
+
+Sıra (karar 2026-11-13): Spring Core → Web → Data JPA → Security (ROADMAP C → W → J → S).
 
 ## Completed steps
 
@@ -25,8 +27,8 @@ _Yok._
 
 - PostgreSQL (`compose.yaml`) host'ta `127.0.0.1:5433` → container 5432. Host 5432 bu makinede başka bir projede (`library-postgres`).
 - **Dikkat:** local DB volume'ünde önceki sürümden bir `users` tablosu ve `flyway_schema_history` duruyor. İlk migration'dan
-  önce volume sıfırlanmalı (`docker compose down -v && docker compose up -d`), yoksa Flyway eski V1'in checksum'ıyla çakışır.
-- `secrets/` (gitignore) içinde önceki sürümden 2048-bit JWT key çifti var; A4'te kullanılabilir ya da yeniden üretilir.
+  (J1) önce volume sıfırlanmalı (`docker compose down -v && docker compose up -d`), yoksa Flyway eski V1'in checksum'ıyla çakışır.
+- `secrets/` (gitignore) içinde önceki sürümden 2048-bit JWT key çifti var; S4'te kullanılabilir ya da yeniden üretilir.
 
 ## Applied migrations
 

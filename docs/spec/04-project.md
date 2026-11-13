@@ -1,6 +1,6 @@
 # DeepToDo Spec — 04 Project
 
-> Adım: **T3**. Todo ile bağlantısı: [03-todo](03-todo.md) TD7–TD8. Genel kurallar: [00-genel-bakis](00-genel-bakis.md).
+> Adımlar: **J3**, **S6** (sahiplik ve aynı sahip FK'si). Todo ile bağlantısı: [03-todo](03-todo.md) TD7–TD8. Genel kurallar: [00-genel-bakis](00-genel-bakis.md).
 
 ## Nedir
 
@@ -53,7 +53,7 @@ Todo'ları gruplayan klasör: "Tez", "Ev", "İş başvuruları". Bir todo en faz
 | Todo'nun project'i aynı sahipte | | | | ✓ project'te `(id, sahip)` çifti tekil; todo buna bağlanır |
 
 PR2'deki DB tekilliği bir **ifade üzerinde** kurulur (sütunun kendisi değil, küçük harfe çevrilmiş hali). Bunun nasıl
-yapıldığı T3'ün DB konusu. Burada ad olduğu gibi saklanır ("Tez"); kullanıcının yazdığı biçim korunur, yalnız tekillik harf
+yapıldığı J3'ün DB konusu (sahip kolonu S6'da tekilliğe katılır). Burada ad olduğu gibi saklanır ("Tez"); kullanıcının yazdığı biçim korunur, yalnız tekillik harf
 duyarsızdır. Email'den farkı bu: orada saklanan değer zaten küçük harfti ([01-kullanici](01-kullanici.md)).
 
 ## İlişkiler

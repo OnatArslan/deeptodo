@@ -162,7 +162,7 @@ docker compose up -d        # local PostgreSQL, host 127.0.0.1:5433
 ./mvnw clean verify
 ```
 
-JWT key'leri (A4'ten itibaren) `secrets/`'ta, gitignore'da:
+JWT key'leri (S4'ten itibaren) `secrets/`'ta, gitignore'da:
 
 ```bash
 mkdir -p secrets

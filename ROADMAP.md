@@ -4,6 +4,10 @@ Hedef: [docs/spec](docs/spec/00-genel-bakis.md)'teki küçük projeyi **Onat'ın
 ([bitti tanımı](docs/spec/07-kalite.md)). Her adımın kuralları, adımın spec dosyasında (dosya başındaki "Adımlar" satırı).
 Claude her adımı bir görev kartıyla tanımlar, Onat yazar ve commit eder, Claude review eder (`CLAUDE.md` → "Çalışma biçimi").
 
+**Sıra (karar 2026-11-13): Spring Core → Web → Data JPA → Security**, Onat'ın kurslarıyla aynı sırada. Bedeli bilinçli:
+- J1'e kadar veri bellekte durur.
+- S6'ya kadar kayıtların sahibi yoktur; sahiplik sonradan dolu tablolara eklenir. Bu da gerçek projelerde sık yaşanan bir iştir ve kendi başına öğretir.
+
 Bir adım tek bir şey öğretir ve ~300 satırı geçmez. Adım review'dan geçince `[x]` + commit SHA'sı yazılır. Sıra değişikliği Onat'ın kararıdır.
 
 İşaretler: `[ ]` yapılmadı · `[x]` tamamlandı · 🔬 derin anlatım (auth)
@@ -13,33 +17,43 @@ Geçmiş: 2026-11-11'e kadarki workspace tabanlı büyük sürüm git geçmişin
 
 ---
 
-## P — Proje temeli
+## C — Spring Core & Boot
 
-- [ ] **P1** Kurulum: start.spring.io (Boot 4.1, Java 21, Maven; webmvc, validation, actuator, data-jpa, flyway, postgresql) +
-  `flyway-database-postgresql`; `compose.yaml` ile DB, datasource env'den (`${DB_URL:…}`), `ddl-auto: validate`,
-  `open-in-view: false`; uygulama açılır, `/actuator/health` UP (`db` dahil)
-- [ ] **P2** `users` migration'ı (V1, `password_hash` hariç) + `User` entity (UUID v7, enum string, `Instant`) + `UserStatus` + `UserRepository`;
-  `created_at` / `updated_at` için JPA auditing + `Clock` bean'i
-- [ ] **P3** Hata sözleşmesi: `@RestControllerAdvice`, HTTP bilmeyen domain exception'ları (404 / 409), validation ve bozuk JSON 400,
-  hepsi `ProblemDetail`
+- [ ] **C1** Kurulum: start.spring.io (Boot 4.1, Java 21, Maven; **yalnız** webmvc, validation, actuator — DB yok);
+  `@SpringBootApplication`, auto-configuration ve condition raporu, `application.yaml`, `local` profili, `/actuator/health` UP
+- [ ] **C2** Domain ve bean'ler: `Todo` domain sınıfı (durum makinesi, `completedAt` kuralı), `TodoRepository` arayüzü + bellekte
+  implementasyonu, `TodoService`, `Clock` bean'i, `@ConfigurationProperties` (liste sınırları); durum makinesi için unit test
 
-## A — Authentication 🔬
+## W — Spring Web
 
-- [ ] **A1** Spring Security: `SecurityFilterChain` (stateless, CSRF kararı, health açık, gerisi kilitli), 401 / 403 `ProblemDetail`
-- [ ] **A2** Register: `password_hash` migration'ı, `PasswordEncoder` (Argon2id, delegating), `POST /api/auth/register`, email normalize, tekil email 409
-- [ ] **A3** Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; üç başarısızlık aynı 401
-- [ ] **A4** Access token: RSA key'ler (`secrets/`), `JwtEncoder`, `kid`, claim'ler; login token döner
-- [ ] **A5** Resource server: `JwtDecoder` (RS256, `iss` / `aud` / `exp`), `CurrentUser`, `GET /api/users/me`
-- [ ] **A6** Refresh token: `refresh_tokens` migration'ı, üretim + cookie, `POST /api/auth/refresh` (koşullu UPDATE ile rotation)
-- [ ] **A7** Reuse detection (aile revoke) + `POST /api/auth/logout` + `DELETE /api/users/me` (kapatma, bütün token'ların revoke'u)
+- [ ] **W1** Todo REST: `POST`, `GET /{id}`, `GET` (liste, şimdilik sayfasız), `DELETE`; record DTO'lar, Bean Validation,
+  `ResponseEntity` + `Location`
+- [ ] **W2** Hata sözleşmesi: `@RestControllerAdvice`, `ProblemDetail`, HTTP bilmeyen domain exception'ları (404 / 409),
+  validation 400 + `errors` listesi, bozuk JSON 400, 405
+- [ ] **W3** `PATCH`: JSON Merge Patch anlamı ("alan yok" ile `null` farkı), durum geçişleri (geçersizi 409)
 
-## T — Todo
+## J — Spring Data JPA
 
-- [ ] **T1** `todos` migration'ı + `Todo` entity (status / priority, `completed_at` CHECK, `@Version`) + `POST` / `GET /api/todos/{id}` (sahiplik sorguda)
-- [ ] **T2** Liste (sayfalama + sıralama), `PATCH` (status geçişleri, version çakışması 409), `DELETE`
-- [ ] **T3** Projects: migration, CRUD + archive; todo → project (`@ManyToOne`, aynı sahip composite FK)
-- [ ] **T4** Tags + `TodoTag` join entity: tag CRUD, todo'ya ekle / çıkar, silmede temizlik
-- [ ] **T5** Filtreleme (`Specification`) + N+1 ölçümü ve çözümü (fetch join / `@EntityGraph`), gerekirse index (`EXPLAIN ANALYZE`)
+- [ ] **J1** PostgreSQL + Flyway: driver, `spring-boot-starter-flyway` + `flyway-database-postgresql`, local DB volume'ünün
+  sıfırlanması, `todos` migration'ı (sahipsiz), `Todo`'nun entity'ye dönüşmesi (UUID v7, enum string, auditing),
+  bellekteki repository yerine Spring Data JPA; `ddl-auto: validate`, `open-in-view: false`
+- [ ] **J2** Liste: sayfalama + sıralama (kendi `Page` DTO'su); `@Version` + PATCH'te version (çakışma 409)
+- [ ] **J3** Projects: migration, CRUD + archive, harf duyarsız tekil ad; todo → project (`@ManyToOne`)
+- [ ] **J4** Tags + `TodoTag` join entity: tag CRUD, todo'ya ekle / çıkar (idempotent), silmede temizlik
+- [ ] **J5** Filtreleme (`Specification`) + N+1 ölçümü ve çözümü (fetch join / `@EntityGraph`), index (`EXPLAIN ANALYZE`)
+
+## S — Spring Security 🔬
+
+- [ ] **S1** `SecurityFilterChain`: stateless, CSRF kararı, health açık, gerisi kilitli; 401 / 403 `ProblemDetail`
+- [ ] **S2** Register: `users` migration'ı + `User` entity, `PasswordEncoder` (Argon2id, delegating), `POST /api/auth/register`,
+  email normalize, tekil email 409
+- [ ] **S3** Login: `AuthenticationManager` → `DaoAuthenticationProvider` → `UserDetailsService`; üç başarısızlık aynı 401
+- [ ] **S4** Access token: RSA key'ler (`secrets/`), `JwtEncoder`, `kid`, claim'ler; login token döner
+- [ ] **S5** Resource server: `JwtDecoder` (RS256, `iss` / `aud` / `exp`), `CurrentUser`, `GET /api/users/me`
+- [ ] **S6** Sahiplik: todos / projects / tags / todo_tags'e sahip kolonu (dolu tablolara), aynı sahip composite FK'leri,
+  bütün sorgular `id + ownerId`, başkasının kaydı 404 (büyürse ikiye bölünür)
+- [ ] **S7** Refresh token: `refresh_tokens` migration'ı, üretim + cookie, `POST /api/auth/refresh` (koşullu UPDATE ile rotation)
+- [ ] **S8** Reuse detection (aile revoke) + `POST /api/auth/logout` + `DELETE /api/users/me` (kapatma, bütün token'ların revoke'u)
 
 ## Q — Test ve paket
 
@@ -49,7 +63,7 @@ Geçmiş: 2026-11-11'e kadarki workspace tabanlı büyük sürüm git geçmişin
 
 ## O — Opsiyonel (v1'den sonra)
 
-- [ ] **O1** Keycloak'a geçiş: kendi auth'umuzu kaldırıp resource server'ı Keycloak'a bağlamak; A adımlarıyla karşılaştırma
+- [ ] **O1** Keycloak'a geçiş: kendi auth'umuzu kaldırıp resource server'ı Keycloak'a bağlamak; S adımlarıyla karşılaştırma
 - [ ] **O2** Redis: login rate limit (429 + `Retry-After`)
 - [ ] **O3** Kafka: transactional outbox + bir event (ör. `UserDeactivated`)
 - [ ] **O4** CI (GitHub Actions) + public HTTPS deploy

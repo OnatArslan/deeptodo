@@ -1,7 +1,7 @@
 # DeepToDo Spec — 03 Todo
 
-> Adımlar: **T1** (tablo, entity, oluştur / oku), **T2** (liste, güncelleme, silme), **T3** (project bağlantısı),
-> **T4** (tag'ler), **T5** (filtreleme, N+1). Genel kurallar: [00-genel-bakis](00-genel-bakis.md).
+> Adımlar: **C2** (domain sınıfı, durum makinesi, bellekte), **W1** (REST), **W3** (PATCH), **J1** (tablo, entity),
+> **J2** (sayfalama, `@Version`), **J3** (project), **J4** (tag'ler), **J5** (filtreleme, N+1), **S6** (sahiplik). Genel kurallar: [00-genel-bakis](00-genel-bakis.md).
 
 ## Nedir
 
@@ -92,9 +92,9 @@ TD4 ve TD5'in yeri önemli: durum, setter ile değil, kuralı bilen bir metotla 
 | `version` | **zorunlu**; tutmazsa 409 |
 
 "Alan hiç yok" ile "alan `null`" farkı Java'da kendiliğinden görünmez: Jackson ikisini de `null` alana çevirir. Bu farkı
-yakalamak T2'nin konusudur (seçenekler görev kartında).
+yakalamak W3'ün konusudur (seçenekler görev kartında).
 
-## Listeleme ve filtreleme (T2, T5)
+## Listeleme ve filtreleme (W1, J2, J5)
 
 `GET /api/todos` yalnız isteği yapanın todo'larını döner.
 
@@ -112,8 +112,8 @@ yakalamak T2'nin konusudur (seçenekler görev kartında).
 
 - Filtreler birbirine **VE** ile bağlanır. Aynı filtrenin birden çok değeri **VEYA**'dır.
 - `priority` sıralaması alfabetik değil, anlamına göredir: `LOW < MEDIUM < HIGH < URGENT`. Enum metin olarak saklandığı
-  için DB alfabetik sıralar; bunun çözümü T5'te konuşulur.
-- Sayfadaki her todo, tag'leriyle birlikte döner. Sorgu sayısı sayfa boyutundan **bağımsız** olmalıdır: N+1 yok (T5'te ölçülür).
+  için DB alfabetik sıralar; bunun çözümü J5'te konuşulur.
+- Sayfadaki her todo, tag'leriyle birlikte döner. Sorgu sayısı sayfa boyutundan **bağımsız** olmalıdır: N+1 yok (J5'te ölçülür).
 
 ## İlişkiler
 

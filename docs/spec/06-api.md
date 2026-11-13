@@ -1,6 +1,6 @@
 # DeepToDo Spec — 06 API ve hata sözleşmesi
 
-> Hata sözleşmesi **P3**'te kurulur; uçlar ilgili adımlarda eklenir. Kurallar entity dosyalarında, burada yalnız şekiller.
+> Hata sözleşmesi **W2**'de kurulur; uçlar ilgili adımlarda eklenir. Kurallar entity dosyalarında, burada yalnız şekiller.
 
 ## Genel
 
@@ -9,7 +9,7 @@
 - Id'ler UUID metni. Path'teki id UUID değilse 400.
 - Oluşturma uçları 201 ve `Location: /api/<kaynak>/<id>` döner, gövdede oluşturulan kayıt durur.
 - `/api/auth/register`, `/login`, `/refresh`, `/logout` ve `/actuator/health` dışındaki her uç
-  `Authorization: Bearer <access token>` ister.
+  `Authorization: Bearer <access token>` ister (S1'den itibaren).
 - Cevapta entity yoktur; her cevap bir DTO'dur (record).
 
 ## Uçlar
@@ -75,7 +75,7 @@ Page<T>  { content: [T], page, size, totalElements, totalPages }
   pageable alanları) API sözleşmesi yapar; Spring Data bunun için uyarı da loglar.
 - Değeri olmayan isteğe bağlı alanlar `null` olarak yazılır (alan atlanmaz). İstemci her zaman aynı şekli görür.
 
-## Hata sözleşmesi (P3, A1)
+## Hata sözleşmesi (W2, S1)
 
 Her hata `application/problem+json` ve `ProblemDetail` şeklindedir:
 
@@ -121,4 +121,4 @@ Kurallar:
 - DB tekillik ihlali (yarış) 409'a çevrilirken constraint adına bakılır. Her `DataIntegrityViolationException` 409 değildir;
   tanınmayan bir ihlal 500'dür.
 - Filter zincirindeki hatalar (401 / 403) MVC'ye ulaşmadan oluşur. `@RestControllerAdvice` onları göremez; Security'nin
-  kendi handler'ı aynı `ProblemDetail` şeklini üretir (A1).
+  kendi handler'ı aynı `ProblemDetail` şeklini üretir (S1).

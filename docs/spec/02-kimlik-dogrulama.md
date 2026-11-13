@@ -1,6 +1,6 @@
 # DeepToDo Spec — 02 Kimlik doğrulama ve oturum
 
-> Adımlar: **A1–A7**. Kullanıcı kuralları: [01-kullanici](01-kullanici.md). Uçların istek / cevap şekilleri: [06-api](06-api.md).
+> Adımlar: **S1–S8** (sahiplik S6'da, [00-genel-bakis](00-genel-bakis.md)). Kullanıcı kuralları: [01-kullanici](01-kullanici.md). Uçların istek / cevap şekilleri: [06-api](06-api.md).
 
 ## Kavramlar
 
@@ -23,7 +23,7 @@ JavaScript'in okuyamadığı bir cookie'de durur, yalnız tek bir uca gider ve h
 
 ## Akışlar
 
-### Register — `POST /api/auth/register` (A2)
+### Register — `POST /api/auth/register` (S2)
 
 1. İstek doğrulanır: email biçimi, parola uzunluğu, görünen ad (U3–U5). Hatalıysa 400.
 2. Email normalize edilir (U2). Kayıtlıysa 409.
@@ -31,7 +31,7 @@ JavaScript'in okuyamadığı bir cookie'de durur, yalnız tek bir uca gider ve h
 4. Kullanıcı `ACTIVE` olarak kaydedilir. Yarışta DB tekilliği yakalarsa yine 409.
 5. Cevap 201 ve kullanıcı bilgisi. **Token dönmez**: kayıt ile giriş ayrı işlerdir, istemci ayrıca login olur.
 
-### Login — `POST /api/auth/login` (A3, A4, A6)
+### Login — `POST /api/auth/login` (S3, S4, S7)
 
 1. Email normalize edilir. Kullanıcı yüklenir, parola hash'e karşı doğrulanır.
 2. Bilinmeyen email, yanlış parola ve kapalı hesap → **aynı 401, aynı gövde** (`Invalid email or password`). Gerçek sebep
@@ -41,14 +41,14 @@ JavaScript'in okuyamadığı bir cookie'de durur, yalnız tek bir uca gider ve h
 4. Başarıda: access token üretilir. Yeni bir oturum (aile) için refresh token üretilir ve hash'i DB'ye yazılır.
 5. Cevap 200. Gövdede access token, `Set-Cookie`'de refresh token.
 
-### Korumalı istek (A5)
+### Korumalı istek (S5)
 
 1. İstemci `Authorization: Bearer <access token>` gönderir.
 2. Spring Security token'ı doğrular: imza (bizim public key), `alg` yalnız RS256, `iss`, `aud`, `exp` (60 sn saat farkı payı).
 3. `sub` claim'i UUID'ye çevrilir ve isteğin kullanıcısı (`CurrentUser`) olur. **DB'ye gidilmez.**
 4. Token yok ya da geçersizse 401 + `WWW-Authenticate: Bearer …`.
 
-### Refresh — `POST /api/auth/refresh` (A6)
+### Refresh — `POST /api/auth/refresh` (S7)
 
 1. İstek gövdesizdir; refresh token cookie'den okunur. Cookie yoksa 401.
 2. Token'ın hash'i hesaplanır ve tek bir **koşullu güncelleme** çalışır: "bu hash'li, kullanılmamış, iptal edilmemiş, süresi
@@ -63,7 +63,7 @@ JavaScript'in okuyamadığı bir cookie'de durur, yalnız tek bir uca gider ve h
 Bu uçta `Authorization` header'ı **yok sayılır**. İstemci süresi dolmuş access token'ı göndermeye devam ederse, Spring
 Security isteği refresh'e ulaşmadan 401 ile keserdi.
 
-### Reuse detection (A7)
+### Reuse detection (S8)
 
 Kullanılmış bir refresh token tekrar gelirse token çalınmış sayılır: ya saldırgan ya da gerçek kullanıcı eski kopyayı
 kullanıyordur, hangisi olduğu bilinemez. **Bütün aile iptal edilir**, istek 401 alır. İki taraf da yeniden login olmak
@@ -72,18 +72,18 @@ zorundadır.
 Bilinen yanlış pozitif: iki sekme aynı anda yenileme yaparsa ikinci sekme "reuse" görünür ve oturum kapanır. Basitlik ve
 güvenlik karşılığında kabul edilir (grace window yok).
 
-### Logout — `POST /api/auth/logout` (A7)
+### Logout — `POST /api/auth/logout` (S8)
 
 Cookie'deki token'ın ailesi iptal edilir. Cookie silinir (`Max-Age=0`). Cevap 204.
 
 Token yoksa ya da zaten geçersizse de 204 döner: logout her durumda "artık çıkmış durumdasın" sonucunu verir. Access token
 süresi dolana kadar çalışmaya devam eder (U8 ile aynı pencere).
 
-### Hesap kapatma — `DELETE /api/users/me` (A7)
+### Hesap kapatma — `DELETE /api/users/me` (S8)
 
 Access token gerekir. Kullanıcı `DEACTIVATED` olur, bütün aileleri iptal edilir (U7), cookie silinir. Cevap 204.
 
-## Access token içeriği (A4)
+## Access token içeriği (S4)
 
 Header:
 
@@ -107,7 +107,7 @@ Claim'ler:
 **Token'a yazılmayanlar:** email, isim, rol, sahiplik ve parolaya dair hiçbir şey. JWT şifreli değildir, yalnız imzalıdır;
 içini herkes okuyabilir.
 
-## Key yönetimi (A4)
+## Key yönetimi (S4)
 
 - 2048 bit RSA key çifti. Local'de `secrets/` (gitignore), production'da ortam değişkeni ya da secret.
 - Uygulama açılırken key'ler okunur. Key eksikse, 2048 bitten kısaysa ya da public key private key'e ait değilse uygulama
@@ -192,7 +192,7 @@ Bir token **aktif** ise kullanılmamış, iptal edilmemiş ve süresi dolmamış
   Cookie kullanan yalnız refresh ve logout var; onları `SameSite=Strict` korur.
 - **Halef bağlantısı yok.** "Bu token'ın yerine hangisi geldi" tutulmaz. Reuse detection için aile + `usedAt` yeterli.
 
-## Hata modları (A adımlarında denenerek gösterilir)
+## Hata modları (S adımlarında denenerek gösterilir)
 
 | Durum | Sonuç |
 |---|---|

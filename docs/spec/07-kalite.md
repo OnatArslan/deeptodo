@@ -37,7 +37,7 @@ Unit test yalnız gerçek mantık içeren yerlerde yazılır (durum makinesi, to
 - Todo listesi tek sayfa için sabit sayıda sorgu çalıştırır. Tag'ler ve project adı için todo başına ayrı sorgu (N+1) yok.
 - Sayfa boyutu en fazla 100.
 - Liste sorgusunun en sık kullanılan yolu (sahip + sıralama) index'le desteklenir. Hangi index'in gerektiğine
-  `EXPLAIN ANALYZE` çıktısıyla karar verilir, tahminle değil (T5).
+  `EXPLAIN ANALYZE` çıktısıyla karar verilir, tahminle değil (J5).
 - Hikari bağlantı havuzu varsayılan boyutta kalır; ölçmeden değiştirilmez.
 
 ## Konfigürasyon

@@ -1,6 +1,6 @@
 # DeepToDo Spec — 01 Kullanıcı (User)
 
-> Adımlar: **P2** (tablo ve entity, parola hariç), **A2** (parola), **A7** (hesap kapatma). Genel kurallar: [00-genel-bakis](00-genel-bakis.md).
+> Adımlar: **S2** (tablo, entity, parola, register), **S3** (login), **S8** (hesap kapatma). Genel kurallar: [00-genel-bakis](00-genel-bakis.md).
 
 ## Nedir
 
@@ -39,13 +39,13 @@ Sisteme kayıtlı kişi. Bütün todo, project, tag ve oturumların sahibidir. K
 | `id` | Kimlik | UUID | ✓ | v7, uygulama üretir, değişmez | `0193…` | — |
 | `email` | Giriş kimliği | metin ≤ 320 | ✓ | U1–U3; saklanan değer her zaman küçük harf | `ayse@mail.com` | `ayse@`, ` ayse@mail.com`, `Ayse@Mail.com` (saklanan değer olarak) |
 | `displayName` | Görünen ad | metin ≤ 100 | ✓ | U4 | `Ayşe Y.` | `""`, `"   "` |
-| `passwordHash` | Parola hash'i | metin ≤ 255 | ✓ (A2'den sonra) | Önekli biçim: `{argon2}$argon2id$…` | — | düz parola |
+| `passwordHash` | Parola hash'i | metin ≤ 255 | ✓ | Önekli biçim: `{argon2}$argon2id$…` | — | düz parola |
 | `status` | Hesap durumu | enum `UserStatus` | ✓ | `ACTIVE`, `DEACTIVATED` | `ACTIVE` | `active`, `DELETED` |
 | `createdAt` | Kayıt zamanı | Instant | ✓ | auditing yazar, bir daha değişmez | | |
 | `updatedAt` | Son değişiklik | Instant | ✓ | auditing yazar | | |
 
-`passwordHash` P2'de yok, A2'de yeni bir migration ile eklenir. A2'ye kadar tabloda kullanıcı satırı olmadığı için zorunlu
-kolon sorunsuz eklenir. Bu, "yeni zorunlu kolon, dolu tabloya nasıl eklenir?" sorusunu da gündeme getirir; A2'de konuşulur.
+Kullanıcı tablosu Security aşamasında (S2) doğar; o ana kadar sistemde kullanıcı kavramı yoktur. Todo, project ve tag
+tablolarına sahip kolonu sonradan (S6) eklenir: "dolu bir tabloya zorunlu kolon nasıl eklenir?" sorusu orada konuşulur.
 
 ## Kural nerede korunur
 
@@ -77,7 +77,7 @@ kolon sorunsuz eklenir. Bu, "yeni zorunlu kolon, dolu tabloya nasıl eklenir?" s
   zorunluluğunu kaldırır. DB kısıtı, unutulan bir normalize'ı yakalar.
 - **Boolean değil enum.** `active: boolean` bugün yeter, ama "kilitli", "doğrulanmamış" gibi bir üçüncü durum geldiğinde
   ikinci bir boolean'a ve "ikisi birden true olursa?" sorusuna dönüşür.
-- **U8 penceresi.** Access token doğrulanırken DB'ye gidilmez (A5). Bu her isteği hızlı ve DB'den bağımsız yapar, ama kapanan
+- **U8 penceresi.** Access token doğrulanırken DB'ye gidilmez (S5). Bu her isteği hızlı ve DB'den bağımsız yapar, ama kapanan
   hesabın token'ı süresi dolana kadar çalışır. Anında iptal gerekseydi bir token kara listesi gerekirdi (opsiyonel O2'de Redis
   ile). 15 dk kabul edilebilir bir bedel.
 - **`User` cevabı.** Entity REST cevabı olarak dönmez. `passwordHash` ve `status` dışarı sızmasın, cevap şekli de tablo

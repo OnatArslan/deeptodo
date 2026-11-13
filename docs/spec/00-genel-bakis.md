@@ -8,12 +8,12 @@
 | Dosya | İçerik | Kullanan adımlar |
 |---|---|---|
 | [00-genel-bakis](00-genel-bakis.md) | ürün, sözlük, entity haritası, bütün entity'lerin ortak kuralları | hepsi |
-| [01-kullanici](01-kullanici.md) | User | P2, A2, A7 |
-| [02-kimlik-dogrulama](02-kimlik-dogrulama.md) | register, login, token'lar, oturum, RefreshToken | A1–A7 |
-| [03-todo](03-todo.md) | Todo, durum makinesi, listeleme | T1, T2, T5 |
-| [04-project](04-project.md) | Project | T3 |
-| [05-tag](05-tag.md) | Tag ve TodoTag (etiketleme) | T4 |
-| [06-api](06-api.md) | uçlar, istek / cevap şekilleri, hata sözleşmesi | bütün web katmanı |
+| [01-kullanici](01-kullanici.md) | User | S2, S3, S8 |
+| [02-kimlik-dogrulama](02-kimlik-dogrulama.md) | register, login, token'lar, oturum, RefreshToken | S1–S8 |
+| [03-todo](03-todo.md) | Todo, durum makinesi, listeleme | C2, W1, W3, J1, J2, J5, S6 |
+| [04-project](04-project.md) | Project | J3, S6 |
+| [05-tag](05-tag.md) | Tag ve TodoTag (etiketleme) | J4, J5, S6 |
+| [06-api](06-api.md) | uçlar, istek / cevap şekilleri, hata sözleşmesi | W1–W3 ve her adımın uçları |
 | [07-kalite](07-kalite.md) | testler, loglama, performans, bitti tanımı | Q1–Q3 |
 
 Her entity dosyası aynı sırayı izler:
@@ -27,6 +27,12 @@ Her entity dosyası aynı sırayı izler:
 7. **Kararlar:** neden böyle, seçilmeyen alternatif.
 
 Bir adıma başlarken önce o adımın dosyasını oku. Görev kartı bu dosyadaki kuralları koda dökme işidir.
+
+**Yapım sırası** (ROADMAP): Spring Core → Web → Data JPA → Security. Spec projenin **son halini** anlatır; yol üstünde
+bazı kurallar henüz geçerli değildir:
+- J1'e kadar veri bellekte tutulur (DB yok); `createdAt` / `updatedAt` ve `version` JPA ile gelir.
+- S6'ya kadar kayıtların sahibi yoktur: herkes her şeyi görür, sahiplik kuralları (404, aynı sahip FK'leri) S6'da eklenir.
+- S1'e kadar bütün uçlar açıktır.
 
 ## Ürün
 
