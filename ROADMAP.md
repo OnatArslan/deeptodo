@@ -76,6 +76,18 @@ Tutor'lar (claude.ai) projeyle paralel gider. Spring kursları **tam zamanında*
 adımın satırındaki başlıklar okunur, sonra adım yazılır. Görev kartı bu başlıkları "Önce oku" olarak verir ve kursun derin
 anlattığını tekrar etmez; kart, kavramın bu projede nasıl uygulanacağına odaklanır.
 
+Bir adımın akışı:
+
+```text
+"sıradaki" → görev kartı ("Önce oku" satırıyla) → Onat tutor'da başlıkları okur → adımı yazar
+→ "review" → geçti → ROADMAP [x] + STATUS → Onat commit eder → "sıradaki"
+```
+
+Spring kurs dosyaları chat sırasıyla ilerleyecek şekilde kurulu (1. chat 1–4, 2. chat 5–9 …). Adımlar ise farklı chat'lerden
+başlık ister. Bu yüzden başlık **doğrudan istenir**: spring-tutor'da yeni bir chat'te "Spring Core kursu, 8. başlık".
+Kurs dosyalarında ilerleme başlık numarasıyla tutulabilir (Java kursundaki gibi "Tamamlanan: …"); bu satırı Onat
+claude.ai'deki dosyalara kendisi ekler.
+
 Kısaltmalar: **Core** = Spring Core, **Web** = Spring Web, **JPA1** = JPA 1 (mapping), **JPA2** = JPA 2 (sorgu),
 **Sec** = Spring Security, **SQL-S** = SQL schema. Numaralar kurs dosyalarındaki başlık numaraları.
 
