@@ -54,8 +54,10 @@ Onat commit'ten önce ya da sonra review isteyebilir; Claude çalışma ağacın
 
 1. **Hedef** — adım neyi öğretir, bittiğinde ne çalışır (2–3 cümle).
 2. **Kabul kriterleri** — doğrulanabilir maddeler: hangi istek hangi cevabı verir, DB'de ne olur, hangi hata ne döner.
-3. **Kavramlar** — ilgili Spring / JPA / Security parçaları: hangi interface, hangi auto-configuration, Spring bizim kodu
-   ne zaman çağırır. Kısa ama "başka kaynağa bakma ihtiyacı" bırakmayacak kadar; gerekiyorsa resmi doküman bölümü.
+3. **Kavramlar** — önce **"Önce oku"**: ROADMAP'teki "Kurs eşleştirmesi" tablosundan o adımın tutor başlıkları
+   (claude.ai'deki spring / sql / java tutor'ları; Onat adıma başlamadan hemen önce okur). Kart, kursun derin anlattığını
+   tekrar etmez; kavramın bu projede nasıl uygulandığını anlatır: hangi interface, hangi auto-configuration, Spring bizim
+   kodu ne zaman çağırır. Kursta olmayan ama adım için gereken bir şey varsa kart onu tam anlatır.
 4. **Yön** — hangi dosyalar / sınıflar gerekecek, karar noktaları ve seçenekler. **Çözümün kendisi verilmez**; Onat
    takılıp isterse ipucu kademeli verilir (önce yön, sonra API adı, en son kod parçası).
 5. **Tuzaklar** — "bunu bilmeyen biri ilk nerede hata yapar?"; Boot 3 alışkanlıklarının Boot 4'te sessizce yanlış olduğu yerler.

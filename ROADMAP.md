@@ -67,3 +67,41 @@ Geçmiş: 2026-11-11'e kadarki workspace tabanlı büyük sürüm git geçmişin
 - [ ] **O2** Redis: login rate limit (429 + `Retry-After`)
 - [ ] **O3** Kafka: transactional outbox + bir event (ör. `UserDeactivated`)
 - [ ] **O4** CI (GitHub Actions) + public HTTPS deploy
+
+---
+
+## Kurs eşleştirmesi (karar 2026-11-15)
+
+Tutor'lar (claude.ai) projeyle paralel gider. Spring kursları **tam zamanında** okunur: bir adıma başlamadan hemen önce o
+adımın satırındaki başlıklar okunur, sonra adım yazılır. Görev kartı bu başlıkları "Önce oku" olarak verir ve kursun derin
+anlattığını tekrar etmez; kart, kavramın bu projede nasıl uygulanacağına odaklanır.
+
+Kısaltmalar: **Core** = Spring Core, **Web** = Spring Web, **JPA1** = JPA 1 (mapping), **JPA2** = JPA 2 (sorgu),
+**Sec** = Spring Security, **SQL-S** = SQL schema. Numaralar kurs dosyalarındaki başlık numaraları.
+
+| Adım | Önce oku | Java kursunda bağı |
+|---|---|---|
+| C1 | Core 1, 8, 9, 10, 15 | |
+| C2 | Core 2, 3, 4 | 33 (State), 20 (sealed / pattern matching) |
+| W1 | Web 1, 2, 3, 4, 6 | |
+| W2 | Web 5 | 5 (exception'lar) |
+| W3 | Web 13 | |
+| J1 | JPA1 1, 2, 3, 8, 10 · JPA2 1, 8 · Core 12 · SQL-S 2, 3, 4 | 31–32 (Proxy) |
+| J2 | JPA2 5, 9 · JPA1 9 · SQL-S 14, 15 | |
+| J3 | JPA1 5, 6 · JPA2 2, 3 · SQL-S 5 | |
+| J4 | JPA1 7 | |
+| J5 | JPA2 4, 6, 7, 10 · SQL-S 10, 11, 12 | |
+| S1 | Sec 1, 6, 13 · Web 8 | 36 (Chain of Responsibility) |
+| S2 | Sec 4 | 33 (Strategy: `PasswordEncoder`) |
+| S3 | Sec 3, 5 | |
+| S4 | Sec 7 | |
+| S5 | Sec 8, 10 | |
+| S6 | Sec 11 · SQL-S 9 | |
+| S7 | Sec 9 | |
+| S8 | Sec 9, 12 | |
+| Q1 | Sec 15 | |
+| Q2 | Web 15 | |
+| O1 | Sec 14 | |
+
+Projede karşılığı olmayan başlıklar: Core 5, 6, 7, 11, 13, 14; Web 7, 9, 10, 11, 12, 14; JPA1 4; Sec 2. Bunlar v1'den
+sonra ya da mülakat hazırlığında okunur. Java ve SQL query kursları kendi hızında gider; tablo yalnız doğrudan bağları gösterir.
