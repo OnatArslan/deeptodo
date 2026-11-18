@@ -83,7 +83,7 @@ Bir adımın akışı:
 → "review" → geçti → ROADMAP [x] + STATUS → Onat commit eder → "sıradaki"
 ```
 
-Spring kursları 2026-11-18'de inceltildi: 65 başlıktan 43'e (Core 9, Web 8, JPA1 7, JPA2 8, Sec 11). SQL'in eski schema ve query kursları aynı gün tek bir 16 başlıklık SQL kursuyla değiştirildi. Az kullanılan konular
+Spring kursları 2026-11-18'de inceltildi: 65 başlıktan 44'e (Core 9, Web 8, JPA1 7, JPA2 8, Sec 12; Sec'te OAuth2 / OIDC iki başlık: kavramlar ve Keycloak). SQL'in eski schema ve query kursları aynı gün tek bir 16 başlıklık SQL kursuyla değiştirildi. Az kullanılan konular
 başlıklardan çıkarıldı ve her dosyanın sonundaki "Ayrıca sorabileceklerin" listesine taşındı. Aşağıdaki numaralar bu yeni
 listeye göredir.
 
@@ -116,9 +116,9 @@ fazla adıma yarıyorsa yalnız ilk adımda okunur; sonraki adımda "tekrar" diy
 | S6 | tekrar: SQL 14'ün composite FK kısmı ve Sec 8'in resource bazlı yetki kısmı | |
 | S7 | Sec 7 | |
 | S8 | tekrar: Sec 7 (reuse detection, revoke) ve Sec 9 (CSRF) | |
-| Q1 | Sec 11 | |
+| Q1 | Sec 12 | |
 | Q2 | Web 8 | |
-| O1 | Sec 10 | |
+| O1 | Sec 10, 11 | |
 
 Projede karşılığı olmayan başlıklar: Core 8 (event'ler, async, scheduling) ve Web 7 (HTTP client'lar). Bunlar v1'den sonra
 ya da mülakat hazırlığında okunur. Java kursu ve SQL kursunun query kısmı (1–12) kendi hızında gider; tablo yalnız doğrudan bağları gösterir.
