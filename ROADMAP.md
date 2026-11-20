@@ -83,7 +83,7 @@ Bir adımın akışı:
 → "review" → geçti → ROADMAP [x] + STATUS → Onat commit eder → "sıradaki"
 ```
 
-Spring kursları 2026-11-18'de inceltildi: 65 başlıktan 44'e (Core 9, Web 8, JPA1 7, JPA2 8, Sec 12; Sec'te OAuth2 / OIDC iki başlık: kavramlar ve Keycloak). SQL'in eski schema ve query kursları aynı gün tek bir 16 başlıklık SQL kursuyla değiştirildi. Az kullanılan konular
+Spring kursları 2026-11-18'de inceltildi: 65 başlıktan 44'e (Core 9, Web 8, JPA1 7, JPA2 8, Sec 12; Sec'te OAuth2 / OIDC iki başlık: kavramlar ve Keycloak). SQL'in eski schema ve query kursları aynı gün tek bir SQL kursuyla değiştirildi; 2026-11-20'de o kurs da kaldırıldı. SQL artık tutor modunda, konu sorularak çalışılır. Az kullanılan konular
 başlıklardan çıkarıldı ve her dosyanın sonundaki "Ayrıca sorabileceklerin" listesine taşındı. Aşağıdaki numaralar bu yeni
 listeye göredir.
 
@@ -93,7 +93,7 @@ chat'lerden başlık ister. Bu yüzden başlık **doğrudan istenir**: spring-tu
 Onat claude.ai'deki dosyalara kendisi ekler.
 
 Kısaltmalar: **Core** = Spring Core, **Web** = Spring Web, **JPA1** = JPA 1 (mapping), **JPA2** = JPA 2 (sorgu),
-**Sec** = Spring Security, **SQL** = SQL kursu (sql-tutor; 1–12 query, 13–16 tasarım). Numaralar kurs dosyalarındaki başlık numaraları. Bir başlık birden
+**Sec** = Spring Security, **SQL:** sql-tutor'a sorulacak konu (kurs dosyası yok, numara yok). Numaralar kurs dosyalarındaki başlık numaraları. Bir başlık birden
 fazla adıma yarıyorsa yalnız ilk adımda okunur; sonraki adımda "tekrar" diye geçer.
 
 | Adım | Önce oku | Java kursunda bağı |
@@ -103,17 +103,17 @@ fazla adıma yarıyorsa yalnız ilk adımda okunur; sonraki adımda "tekrar" diy
 | W1 | Web 1, 2, 3, 5 | |
 | W2 | Web 4 | 5 (exception'lar) |
 | W3 | tekrar: Web 2'nin Jackson kısmı | |
-| J1 | JPA1 1, 2, 6, 7 · JPA2 1, 7 · Core 7 · SQL 13 | 31–32 (Proxy) |
-| J2 | JPA2 4, 8 · SQL 16 (tekrar: JPA1 7'nin `@Version` kısmı) | |
-| J3 | JPA1 3, 4 · JPA2 2 · SQL 14 | |
+| J1 | JPA1 1, 2, 6, 7 · JPA2 1, 7 · Core 7 · SQL: tipler, key'ler ve constraint'ler | 31–32 (Proxy) |
+| J2 | JPA2 4, 8 · SQL: transaction, isolation ve locking (tekrar: JPA1 7'nin `@Version` kısmı) | |
+| J3 | JPA1 3, 4 · JPA2 2 · SQL: ilişkiler ve normalization | |
 | J4 | JPA1 5 | |
-| J5 | JPA2 3, 5, 6 · SQL 15 | |
+| J5 | JPA2 3, 5, 6 · SQL: index ve EXPLAIN | |
 | S1 | Sec 1, 9 · Web 6 | 36 (Chain of Responsibility) |
 | S2 | Sec 3 | 33 (Strategy: `PasswordEncoder`) |
 | S3 | Sec 2, 4 | |
 | S4 | Sec 5 | |
 | S5 | Sec 6, 8 | |
-| S6 | tekrar: SQL 14'ün composite FK kısmı ve Sec 8'in resource bazlı yetki kısmı | |
+| S6 | SQL: composite FK ile aynı sahibe ait olmayı DB'de korumak · tekrar: Sec 8'in resource bazlı yetki kısmı | |
 | S7 | Sec 7 | |
 | S8 | tekrar: Sec 7 (reuse detection, revoke) ve Sec 9 (CSRF) | |
 | Q1 | Sec 12 | |
@@ -121,4 +121,4 @@ fazla adıma yarıyorsa yalnız ilk adımda okunur; sonraki adımda "tekrar" diy
 | O1 | Sec 10, 11 | |
 
 Projede karşılığı olmayan başlıklar: Core 8 (event'ler, async, scheduling) ve Web 7 (HTTP client'lar). Bunlar v1'den sonra
-ya da mülakat hazırlığında okunur. Java kursu ve SQL kursunun query kısmı (1–12) kendi hızında gider; tablo yalnız doğrudan bağları gösterir.
+ya da mülakat hazırlığında okunur. Java ve SQL (tutor modunda) kendi hızında gider; tablo yalnız doğrudan bağları gösterir.
