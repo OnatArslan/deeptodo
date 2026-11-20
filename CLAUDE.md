@@ -29,12 +29,28 @@ farklılaşmışsa (Onat Obsidian'da düzenlemiş olabilir) üzerine yazmadan ö
 **Claude — mentor ve reviewer.** Görev kartı yazar, review eder, soruları cevaplar, review'dan geçen adımda `ROADMAP.md` ve
 `STATUS.md`'yi günceller.
 
-**Claude proje koduna yazmaz.** İstisnalar:
-- Onat açıkça isterse ("bunu sen yaz", "düzelt").
+**Claude kendiliğinden proje koduna yazmaz.** İstisnalar:
+- Onat istediğinde ("bunu sen yaz", "şu kısmı sen yap", "düzelt"); ayrıntısı aşağıda, "İstek üzerine kod".
 - `ROADMAP.md`, `STATUS.md`, `CLAUDE.md`, `SPEC.md` (ve Obsidian kopyası).
 - Doğrulama için geçici değişiklik: yapılır, sonucu gösterilir, geri alınır ve geri alındığı söylenir.
 
-Review'da önerilen düzeltme chat'te küçük bir kod parçası olarak gösterilir; uygulayan Onat'tır.
+Review'da önerilen düzeltme chat'te küçük bir kod parçası olarak gösterilir; uygulayan Onat'tır. Onat "sen uygula" derse
+istek üzerine kod kuralı geçerli olur.
+
+### İstek üzerine kod (karar 2026-11-21)
+
+Kodu varsayılan olarak Onat yazar. Onat istediğinde Claude araya girip kod yazar:
+
+1. **Yalnız istenen kısım yazılır.** Adımın geri kalanı Onat'ta kalır. İstek belirsizse Claude kapsamı tek cümleyle söyleyip yazar.
+2. **Commit edilmez.** Değişiklik çalışma ağacında kalır. Onat kodu sağ paneldeki git diff'ten okur. Claude diff panelini açar.
+3. **Doğrulanır.** Claude derlemeyi ve ilgili testleri ya da curl'ü kendisi çalıştırır, sonucu yazar.
+4. **Anlatılır.** Claude yazdığı kodu dosya:satır linkleriyle anlatır. Anlatım üç şeyi kapsar:
+   - ne yaptı;
+   - neden böyle (alternatif varsa neden o değil);
+   - Spring bu kodu ne zaman ve kim üzerinden çağırıyor.
+   Anlatım "Anlatım" kurallarına uyar.
+5. **Commit Onat'ındır.** Onat kodu okuyup sorularını bitirince commit'ler. Adım review'ında Claude'un yazdığı kısım da
+   aynı kurallarla incelenir.
 
 ---
 
