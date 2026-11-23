@@ -113,6 +113,9 @@ Bulgu yoksa uydurulmaz.
 - Her şey `develop` üzerinde, doğrudan (feature branch yok). `main` yalnız Onat'ın kararıyla (release).
 - Adım yazıldıktan sonra **commit edilmez**; Onat IntelliJ'de diff'i okur. Sonraki adımın planı onaylanınca Claude önceki
   adımı commit edip push eder, sonra yeni adımı yazar. Böylece diff'te her zaman yalnız tek adım görünür.
+- Claude adımı yazınca diff panelini **"uncommitted" kapsamıyla** açar. Varsayılan kapsam ("all") `main`'e göre
+  karşılaştırır ve `develop`'taki bütün geçmiş commit'leri gösterir. Commit edilmiş bir adıma dönüp bakmak için kapsam
+  o commit'in SHA'sı olur.
 - Mesaj: İngilizce, emir kipinde başlık ("Add refresh token rotation"); gövde Türkçe: ne, neden, nasıl doğrulandı.
 - Commit metinlerinde Claude'a atıf yok (Co-Authored-By dahil). `secrets/` asla commit edilmez.
 - Commit edilmiş geçmiş yeniden yazılmaz (`--amend` / rebase / force push yok).
