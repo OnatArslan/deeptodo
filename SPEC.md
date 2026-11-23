@@ -26,7 +26,8 @@ Her entity bölümü aynı sırayı izler:
 6. **İlişkiler**
 7. **Kararlar:** neden böyle, seçilmeyen alternatif.
 
-Bir adıma başlarken önce o adımın bölümünü oku. Görev kartı bu bölümdeki kuralları koda dökme işidir.
+Bir adıma başlarken önce o adımın bölümünü oku. Her adım bu bölümdeki kuralları koda dökme işidir; adımın planı kod
+yazılmadan önce anlatılır ve onaylanır (`CLAUDE.md` → "Çalışma biçimi").
 
 ---
 
@@ -146,9 +147,9 @@ frontend; microservice. Keycloak, Redis, Kafka ve public deploy yalnız ROADMAP'
 | Alan | Seçim |
 |---|---|
 | Dil / build | Java 21, Maven |
-| Framework | Spring Boot 4.1 (Framework 7, Security 7) |
+| Framework | Spring Boot 4.2 (Framework 7.1, Security 7.2) |
 | Web | Spring Web MVC, Bean Validation, `ProblemDetail` |
-| Persistence | PostgreSQL 17, Flyway, Spring Data JPA (Hibernate 7) |
+| Persistence | PostgreSQL 17, Flyway, Spring Data JPA (Hibernate 7.4) |
 | Security | Spring Security, OAuth2 Resource Server (JWT, RS256), Argon2id |
 | Test | JUnit 5, Spring Boot Test, Testcontainers (PostgreSQL) |
 | Paket | springdoc-openapi, Docker |
@@ -544,7 +545,7 @@ TD4 ve TD5'in yeri önemli: durum, setter ile değil, kuralı bilen bir metotla 
 | `version` | **zorunlu**; tutmazsa 409 |
 
 "Alan hiç yok" ile "alan `null`" farkı Java'da kendiliğinden görünmez: Jackson ikisini de `null` alana çevirir. Bu farkı
-yakalamak W3'ün konusudur (seçenekler görev kartında).
+yakalamak W3'ün konusudur (seçenekler W3'ün planında).
 
 ### Listeleme ve filtreleme (W1, J2, J5)
 
@@ -762,7 +763,7 @@ Todo  1 ──── N  TodoTag  N ──── 1  Tag
 
 - TodoTag → Todo ve TodoTag → Tag: `@ManyToOne`, LAZY. İlişkinin sahibi (FK'ler) TodoTag'dedir.
 - Todo → TodoTag koleksiyonu (`@OneToMany(mappedBy)`): todo cevabında tag'ler gösterildiği için **gerekebilir**. Tutup
-  tutmamak J4'ün karar noktasıdır. Tutulursa nasıl yükleneceği (N+1) J5'in konusudur.
+  tutmamak J4'ün karar noktasıdır (planda önerilir, Onat onaylar). Tutulursa nasıl yükleneceği (N+1) J5'in konusudur.
 - Tag → TodoTag koleksiyonu: tutulmaz. "Bu tag hangi todo'larda" sorusu todo listesinin `tagId` filtresinin işi.
 
 ### Kararlar

@@ -1,14 +1,16 @@
 # DeepToDo — Roadmap
 
-Hedef: [SPEC.md](SPEC.md)'deki küçük projeyi **Onat'ın kendi yazmasıyla** v1'e getirmek
+Hedef: [SPEC.md](SPEC.md)'deki küçük projeyi v1'e getirmek; Onat her adımı aktif review ile öğrenir
 (bitti tanımı: SPEC §8). Her adımın kuralları spec'te; hangi bölümün hangi adıma ait olduğu SPEC'in başındaki tabloda.
-Claude her adımı bir görev kartıyla tanımlar, Onat yazar ve commit eder, Claude review eder (`CLAUDE.md` → "Çalışma biçimi").
+Claude her adımın planını anlatır, Onat onaylar, Claude yazar ve anlatır, Onat diff'ten review eder; dört çekirdek parçayı
+(C2, W2, S1, S7) Onat kendisi yazar (`CLAUDE.md` → "Roller", "Çalışma biçimi"; karar 2026-11-23).
 
 **Sıra (karar 2026-11-13): Spring Core → Web → Data JPA → Security**, Onat'ın kurslarıyla aynı sırada. Bedeli bilinçli:
 - J1'e kadar veri bellekte durur.
 - S6'ya kadar kayıtların sahibi yoktur; sahiplik sonradan dolu tablolara eklenir. Bu da gerçek projelerde sık yaşanan bir iştir ve kendi başına öğretir.
 
-Bir adım tek bir şey öğretir ve ~300 satırı geçmez. Adım review'dan geçince `[x]` + commit SHA'sı yazılır. Sıra değişikliği Onat'ın kararıdır.
+Bir adım tek bir şey öğretir ve ~300 satırı geçmez. Adım bitince `[x]` yazılır; commit SHA'sı, adım commit edildikten
+sonra bir sonraki commit'te eklenir. Sıra değişikliği Onat'ın kararıdır.
 
 İşaretler: `[ ]` yapılmadı · `[x]` tamamlandı · 🔬 derin anlatım (auth)
 
@@ -19,7 +21,7 @@ Geçmiş: 2026-11-11'e kadarki workspace tabanlı büyük sürüm git geçmişin
 
 ## C — Spring Core & Boot
 
-- [ ] **C1** Kurulum: start.spring.io (Boot 4.1, Java 21, Maven; **yalnız** webmvc, validation, actuator — DB yok);
+- [ ] **C1** Kurulum: start.spring.io (Boot 4.2, Java 21, Maven; **yalnız** webmvc, validation, actuator — DB yok);
   `@SpringBootApplication`, auto-configuration ve condition raporu, `application.yaml`, `local` profili, `/actuator/health` UP
 - [ ] **C2** Domain ve bean'ler: `Todo` domain sınıfı (durum makinesi, `completedAt` kuralı), `TodoRepository` arayüzü + bellekte
   implementasyonu, `TodoService`, `Clock` bean'i, `@ConfigurationProperties` (liste sınırları); durum makinesi için unit test
@@ -73,15 +75,20 @@ Geçmiş: 2026-11-11'e kadarki workspace tabanlı büyük sürüm git geçmişin
 ## Kurs eşleştirmesi (karar 2026-11-15)
 
 Tutor'lar (claude.ai) projeyle paralel gider. Spring kursları **tam zamanında** okunur: bir adıma başlamadan hemen önce o
-adımın satırındaki başlıklar okunur, sonra adım yazılır. Görev kartı bu başlıkları "Önce oku" olarak verir ve kursun derin
-anlattığını tekrar etmez; kart, kavramın bu projede nasıl uygulanacağına odaklanır.
+adımın satırındaki başlıklar okunur, sonra adım yazılır. Adım planı bu başlıkları "Önce oku" olarak verir ve kursun derin
+anlattığını tekrar etmez; plan ve anlatım, kavramın bu projede nasıl uygulandığına odaklanır.
 
 Bir adımın akışı:
 
 ```text
-"sıradaki" → görev kartı ("Önce oku" satırıyla) → Onat tutor'da başlıkları okur → adımı yazar
-→ "review" → geçti → ROADMAP [x] + STATUS → Onat commit eder → "sıradaki"
+"sıradaki" → adım planı ("Önce oku" satırıyla) → Onat tutor'da başlıkları okur, planı onaylar
+→ Claude önceki adımı commit eder, yeni adımı yazar (commit etmeden) → Onat diff'ten review eder, kontrol sorularını cevaplar
+→ ROADMAP [x] + STATUS → "sıradaki"
 ```
+
+2026-11-23: dört Spring kursu başlık numaraları değişmeden güncellendi ve yeniden başlatıldı (Core, Web, JPA 1, Security
+için birer 1. chat). Onat kursları sırayla ("devam") okuyabilir; sıra dışı bir başlık gerekirse yeni bir chat'te doğrudan
+ister.
 
 Spring kursları 2026-11-18'de inceltildi: 65 başlıktan 44'e (Core 9, Web 8, JPA1 7, JPA2 8, Sec 12; Sec'te OAuth2 / OIDC iki başlık: kavramlar ve Keycloak). SQL'in eski schema ve query kursları aynı gün tek bir SQL kursuyla değiştirildi; 2026-11-20'de o kurs da kaldırıldı. SQL artık tutor modunda, konu sorularak çalışılır. Az kullanılan konular
 başlıklardan çıkarıldı ve her dosyanın sonundaki "Ayrıca sorabileceklerin" listesine taşındı. Aşağıdaki numaralar bu yeni

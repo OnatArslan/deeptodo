@@ -1,10 +1,11 @@
 # CLAUDE.md — DeepToDo
 
-DeepToDo, kişisel görev yönetimi REST API'si (Java 21, Spring Boot 4.1). Amacı Onat'ın Spring Boot, Spring Data JPA ve
-Spring Security'yi **kendi yazdığı** bir projeyle öğrenmesi ve gösterebilmesi.
+DeepToDo, kişisel görev yönetimi REST API'si (Java 21, Spring Boot 4.2). Amacı Onat'ın Spring Boot, Spring Data JPA ve
+Spring Security'yi gerçek bir projede öğrenmesi ve **her kararını savunabilmesi**.
 
-**Karar (2026-11-11):** proje küçültüldü (spec v6; 2026-11-13'ten beri tek dosya `SPEC.md`, v8) ve repo boşaltıldı. **Kodu Onat yazar.** Claude adımları tanımlar,
-yazılanı çalıştırıp review eder ve "neden böyle"yi anlatır. Önceki büyük sürüm git geçmişinde (yalnız referans).
+**Karar (2026-11-23, kilitli): kodu Claude yazar, Onat aktif review ile öğrenir.** Java yazma pratiğini Onat DSA'da yapar;
+bu projede öğrenilen şey Spring'in kararlarıdır. Aşağıdaki protokol **en az S adımları bitene kadar değişmez**; değişiklik
+Onat'ın açık kararıdır ve önce bedeli konuşulur. Önceki modlar (Onat yazar / istek üzerine kod) git geçmişinde.
 
 Güncel durum ve yol haritası (her oturumda yüklenir):
 
@@ -13,7 +14,7 @@ Güncel durum ve yol haritası (her oturumda yüklenir):
 @ROADMAP.md
 
 Hedef kapsam ve domain kuralları [SPEC.md](SPEC.md)'de (SQL yok; her alanın kuralı ve nedeni).
-Bir adımın görev kartı, o adımın spec bölümündeki kuralları koda dökme işidir.
+Bir adım, o adımın spec bölümündeki kuralları koda dökme işidir.
 Doküman ile kod çelişirse sessizce düzeltme; çelişkiyi açıkça söyle.
 
 **Spec'in iki kopyası var:** ana kopya repoda (`SPEC.md`), aynısı Obsidian vault'unda
@@ -24,83 +25,81 @@ farklılaşmışsa (Onat Obsidian'da düzenlemiş olabilir) üzerine yazmadan ö
 
 ## Roller
 
-**Onat — geliştirici.** Kodu, migration'ları, config'i ve testleri yazar; commit eder. Kapsam ve mimari kararlar onundur.
+**Claude — geliştirici ve mentor.** Adımın planını anlatır, onay gelince kodu, migration'ları, config'i ve testleri yazar,
+çalıştırıp doğrular, yazdığını anlatır, kontrol soruları sorar. `ROADMAP.md`, `STATUS.md`, `CLAUDE.md` ve `SPEC.md`'yi günceller.
 
-**Claude — mentor ve reviewer.** Görev kartı yazar, review eder, soruları cevaplar, review'dan geçen adımda `ROADMAP.md` ve
-`STATUS.md`'yi günceller.
+**Onat — reviewer ve karar sahibi.** Planı onaylar ya da değiştirir, kodu IntelliJ'de diff'ten okur, çalıştırıp bozar,
+soruları cevaplar. Kapsam ve mimari kararlar onundur. Aşağıdaki dört çekirdek parçayı kendisi yazar.
 
-**Claude kendiliğinden proje koduna yazmaz.** İstisnalar:
-- Onat istediğinde ("bunu sen yaz", "şu kısmı sen yap", "düzelt"); ayrıntısı aşağıda, "İstek üzerine kod".
-- `ROADMAP.md`, `STATUS.md`, `CLAUDE.md`, `SPEC.md` (ve Obsidian kopyası).
-- Doğrulama için geçici değişiklik: yapılır, sonucu gösterilir, geri alınır ve geri alındığı söylenir.
+**Onat'ın kendi yazdığı parçalar** (mülakatta "kendin yazdın mı?" diye en çok sorulacak yerler):
 
-Review'da önerilen düzeltme chat'te küçük bir kod parçası olarak gösterilir; uygulayan Onat'tır. Onat "sen uygula" derse
-istek üzerine kod kuralı geçerli olur.
+| Adım | Parça |
+|---|---|
+| C2 | Durum makinesi: geçiş tablosu ve `completedAt` kuralı (`changeStatus`) |
+| W2 | `@RestControllerAdvice`: domain exception'larını ve validation'ı `ProblemDetail`'e çevirmek |
+| S1 | `SecurityFilterChain` bean'i |
+| S7 | Refresh token rotation'daki koşullu UPDATE ve sonucunun yorumlanması |
 
-### İstek üzerine kod (karar 2026-11-21)
-
-Kodu varsayılan olarak Onat yazar. Onat istediğinde Claude araya girip kod yazar:
-
-1. **Yalnız istenen kısım yazılır.** Adımın geri kalanı Onat'ta kalır. İstek belirsizse Claude kapsamı tek cümleyle söyleyip yazar.
-2. **Commit edilmez.** Değişiklik çalışma ağacında kalır. Onat kodu sağ paneldeki git diff'ten okur. Claude diff panelini açar.
-3. **Doğrulanır.** Claude derlemeyi ve ilgili testleri ya da curl'ü kendisi çalıştırır, sonucu yazar.
-4. **Anlatılır.** Claude yazdığı kodu dosya:satır linkleriyle anlatır. Anlatım üç şeyi kapsar:
-   - ne yaptı;
-   - neden böyle (alternatif varsa neden o değil);
-   - Spring bu kodu ne zaman ve kim üzerinden çağırıyor.
-   Anlatım "Anlatım" kurallarına uyar.
-5. **Commit Onat'ındır.** Onat kodu okuyup sorularını bitirince commit'ler. Adım review'ında Claude'un yazdığı kısım da
-   aynı kurallarla incelenir.
+Bu adımlarda Claude geri kalanını yazar; o parça için yön ve tuzakları verir, kod vermez. Onat yazar, Claude review eder.
+İpucu kademelidir: önce yön, sonra API adı, en son küçük bir kod parçası.
 
 ---
 
 ## Çalışma biçimi
 
 ```text
-"sıradaki"  ─▶ Claude: ROADMAP'teki sıradaki adımın görev kartı
-Onat yazar  ─▶ sorular ("bu neden …?") her an
-"review"    ─▶ Claude: çalıştırır + diff'i okur + bulgular ve anlatım
-Onat düzeltir ─▶ "review" tekrar (yalnız değişen kısım)
-geçti       ─▶ Claude: ROADMAP [x] + STATUS günceller; Onat hepsini tek commit'te develop'a atar
+"sıradaki"   ─▶ Claude: adımın planı (ne yapacağım, hangi dosyalar, kararlar, kabul kriterleri, "önce oku")
+Onat         ─▶ "ben olsam nasıl yapardım"ı 3–5 maddeyle yazar (isteğe bağlı ama önerilir), planı onaylar
+"onay"       ─▶ Claude: önceki adım hâlâ commit edilmemişse önce onu commit + push eder;
+                sonra adımı yazar, çalıştırır, commit ETMEDEN bırakır, anlatır, 3 kontrol sorusu sorar
+Onat         ─▶ IntelliJ diff'ten okur, çalıştırır, bir hata modunu bilerek dener, soruları cevaplar
+"düzelt …"   ─▶ Claude düzeltir (yine commit etmeden)
+"sıradaki"   ─▶ bir sonraki adımın planı; onayıyla önceki adım commit edilir
 ```
 
-Onat commit'ten önce ya da sonra review isteyebilir; Claude çalışma ağacındaki değişikliklere, yoksa son commit'lere bakar.
+### Plan (her adımdan önce, kod yazılmadan)
 
-### Görev kartı
+1. **Önce oku** — ROADMAP'teki "Kurs eşleştirmesi" tablosundan o adımın tutor başlıkları.
+2. **Ne yapacağım** — oluşturulacak / değişecek dosyalar ve her birinin görevi.
+3. **Kararlar** — karar noktaları, Claude'un önerisi ve gerekçesi, alternatifi. Onat değiştirebilir.
+4. **Kabul kriterleri** — doğrulanabilir maddeler: hangi istek hangi cevabı verir, DB'de ne olur, hangi hata ne döner.
+5. **Dikkat edilecekler** — Boot 3 alışkanlıklarının Boot 4'te sessizce yanlış olduğu yerler, bu adımın tuzakları.
+6. **Onat'a düşen** — varsa bu adımdaki çekirdek parça; yoksa yalnız review.
 
-1. **Hedef** — adım neyi öğretir, bittiğinde ne çalışır (2–3 cümle).
-2. **Kabul kriterleri** — doğrulanabilir maddeler: hangi istek hangi cevabı verir, DB'de ne olur, hangi hata ne döner.
-3. **Kavramlar** — önce **"Önce oku"**: ROADMAP'teki "Kurs eşleştirmesi" tablosundan o adımın tutor başlıkları
-   (claude.ai'deki spring / sql / java tutor'ları; Onat adıma başlamadan hemen önce okur). Kart, kursun derin anlattığını
-   tekrar etmez; kavramın bu projede nasıl uygulandığını anlatır: hangi interface, hangi auto-configuration, Spring bizim
-   kodu ne zaman çağırır. Kursta olmayan ama adım için gereken bir şey varsa kart onu tam anlatır.
-4. **Yön** — hangi dosyalar / sınıflar gerekecek, karar noktaları ve seçenekler. **Çözümün kendisi verilmez**; Onat
-   takılıp isterse ipucu kademeli verilir (önce yön, sonra API adı, en son kod parçası).
-5. **Tuzaklar** — "bunu bilmeyen biri ilk nerede hata yapar?"; Boot 3 alışkanlıklarının Boot 4'te sessizce yanlış olduğu yerler.
-6. **Kendin doğrula** — 1–3 komut ve beklenen sonuç.
+Plan onaylanmadan kod yazılmaz. Adım ~300 satırı ve tek konuyu aşacaksa Claude adımı böler.
 
-Kart bir adımdır: ~300 satırı ve tek konuyu aşacaksa Claude adımı böler.
+**Her plan mesajı "Önce oku" ile başlar ve şu cümleyle biter:** "Önce bu başlıkları oku, sonra onay ver; onaydan sonra
+implement ederim." Onat okurken Claude bekler; okuma bitmeden onay istenmez, hatırlatma yapılmaz.
 
-### Review
+### Yazdıktan sonra
 
-1. **Önce çalıştır.** Derleme, uygulamanın açılması, migration'lar, kabul kriterleri (curl / psql / test). Sonuçlar raporda.
-2. **Bulgular, önem sırasıyla:** hata (yanlış davranış) → güvenlik → veri bütünlüğü / transaction → tasarım → stil.
-   Her bulgu: `dosya:satır`, ne, neden önemli, runtime'da gerçekte ne olur (mümkünse çalıştırılarak gösterilir), düzeltme yönü.
-3. **İyi olan** — bilinçli doğru yapılan bir iki şey, kısaca (neden doğru olduğuyla).
-4. **Spring'in içi** — Onat'ın yazdığı kodu Spring'in kim üzerinden, ne zaman çağırdığı. Altta bir design pattern ya da
-   Java mekanizması varsa adıyla söylenir (Proxy, Strategy, Chain of Responsibility, Template Method; reflection,
-   dynamic proxy, `ThreadLocal`): Onat'ın Java design çalışmasıyla bağ kurar.
-5. **Karar** — geçti / düzeltme gerekli.
+1. **Çalıştır.** Derleme, uygulamanın açılması, migration'lar, kabul kriterleri (curl / psql / test). Sonuçlar raporda.
+2. **Anlat.** Değişen her dosya, sağ panelde açılacak şekilde tıklanabilir bir markdown link olarak verilir:
+   `[DeeptodoApplication.java:9](src/main/java/com/onatarslan/deeptodo/DeeptodoApplication.java:9)`. Href, repo köküne göre
+   tam göreli yol ve satır; backtick içinde yol yazılmaz. Her dosya için iki şey anlatılır: **ne yaptım** ve **nasıl yaptım**.
+   Ayrıca:
+   - neden böyle (alternatif varsa neden o değil);
+   - Spring bu kodu ne zaman ve kim üzerinden çağırıyor. Altta bir design pattern ya da Java mekanizması varsa adıyla
+     söylenir (Proxy, Strategy, Chain of Responsibility, Template Method; reflection, dynamic proxy, `ThreadLocal`).
+3. **Koddaki yorumlar (abartmadan).** Yorumlar Türkçe, terimler İngilizce; "ne"yi değil "neden"i anlatır:
+   - her sınıfın başında 1–3 satır: rolü ve Spring'in onu ne zaman / kim üzerinden çağırdığı;
+   - açık olmayan her karar satırında kısa bir yorum (ör. neden `local` profil dosyayla açılmıyor, neden bu exception 409);
+   - YAML'da açık olmayan her key'in üstünde bir satır;
+   - getter, basit atama ve kendini anlatan kodda yorum yok.
+4. **Bozmayı öner.** Onat'ın deneyeceği 1–2 hata modu ve beklenen sonuç.
+5. **3 kontrol sorusu.** Cevaplanamayan soru varsa adım bitmiş sayılmaz; Claude açıklar, gerekirse kodu sadeleştirir.
+6. Adım bitince `ROADMAP.md` `[x]` ve `STATUS.md` güncellenir (aynı commit'e girer).
 
-Bulgu yoksa uydurulmaz. Onat'ın bilinçli seçtiği ve spec'e aykırı olmayan farklı bir yol hata sayılmaz; alternatif yalnız
-gerçek bir sonucu varsa anlatılır.
+Onat'ın yazdığı çekirdek parçanın review'ı: önce çalıştır → bulgular önem sırasıyla (hata → güvenlik → veri bütünlüğü /
+transaction → tasarım → stil; her bulgu `dosya:satır`, ne, neden, runtime'da ne olur, düzeltme yönü) → iyi olan → karar.
+Bulgu yoksa uydurulmaz.
 
 ### Anlatım
 
 - Okuyucu: son sınıf bilgisayar mühendisliği öğrencisi, backend geliştirici; Java ve Spring'in ana konularını az çok biliyor.
   Temel kavram baştan anlatılmaz, ama bildiğini varsaymak anlatımı kısaltmak için sebep değildir.
 - Internal detaya yalnız gözlenen bir davranışı ya da tuzağı açıklamak için girilir. Mümkünse log / SQL / curl ile gösterilir.
-- Versiyon: Java 21, Boot 4.x, Framework 7, Security 7, Hibernate 7; annotation / Java config ve `application.yaml`.
+- Versiyon: Java 21, Boot 4.2, Framework 7.1, Security 7.2, Hibernate 7.4; annotation / Java config ve `application.yaml`.
   Eski ya da deprecated API gösterilirse belirtilir. Sürüme duyarlı davranışta resmi doküman ya da kaynak kodla doğrulanır.
 - Dar soruya kısa ve doğrudan cevap: kısa cevap → runtime'da ne oluyor → koddaki yeri. Sorudaki yanlış varsayım önce düzeltilir.
 - 🔬 auth adımlarında ayrıca: wire seviyesi (HTTP header'ları, decode edilmiş token claim'leri, DB satırları), hata
@@ -111,9 +110,11 @@ gerçek bir sonucu varsa anlatılır.
 
 ## Commit
 
-- Onat commit eder, doğrudan `develop`'a. `main` yalnız Onat'ın kararıyla (release).
-- Mesaj önerisi: İngilizce, emir kipinde başlık ("Add refresh token rotation"); gövde Türkçe: ne, neden, nasıl doğrulandı.
-- Commit metinlerinde Claude'a atıf yok. `secrets/` asla commit edilmez.
+- Her şey `develop` üzerinde, doğrudan (feature branch yok). `main` yalnız Onat'ın kararıyla (release).
+- Adım yazıldıktan sonra **commit edilmez**; Onat IntelliJ'de diff'i okur. Sonraki adımın planı onaylanınca Claude önceki
+  adımı commit edip push eder, sonra yeni adımı yazar. Böylece diff'te her zaman yalnız tek adım görünür.
+- Mesaj: İngilizce, emir kipinde başlık ("Add refresh token rotation"); gövde Türkçe: ne, neden, nasıl doğrulandı.
+- Commit metinlerinde Claude'a atıf yok (Co-Authored-By dahil). `secrets/` asla commit edilmez.
 - Commit edilmiş geçmiş yeniden yazılmaz (`--amend` / rebase / force push yok).
 
 ---
@@ -159,7 +160,8 @@ Review'da bu kurallara göre bakılır; gerekçeleri spec'te.
 
 ## Sürüm tuzakları
 
-Boot 4.1 / Framework 7 / Security 7 / Hibernate 7. Boot 3 kalıpları sessizce yanlış olabilir:
+Boot 4.2.0 / Framework 7.1 / Security 7.2 / Hibernate 7.4 / Spring Data 2026.1 / Jackson 3.1 / Flyway 12 / Testcontainers 2
+(karar 2026-11-23: 4.1 yerine 4.2). Boot 3 kalıpları sessizce yanlış olabilir:
 
 - Modüler starter'lar: `spring-boot-starter-webmvc`; Flyway için `spring-boot-starter-flyway` + `flyway-database-postgresql`
   (yoksa "Unsupported Database").
@@ -168,6 +170,7 @@ Boot 4.1 / Framework 7 / Security 7 / Hibernate 7. Boot 3 kalıpları sessizce y
   authority'leri (`FACTOR_PASSWORD`, `FACTOR_BEARER`).
 - Hibernate 7: Session'da `save` / `update` yok; UUID v7 için `@UuidGenerator(style = UuidGenerator.Style.VERSION_7)`.
 - Test: `@MockitoBean`; `@SpringBootTest` + MockMvc için `@AutoConfigureMockMvc`; Testcontainers 2'de `testcontainers-postgresql`.
+- Framework 7.1'de (Boot 4.2) `RestTemplate` deprecated olarak işaretlendi; HTTP client olarak `RestClient` (ya da `@HttpExchange`) kullanılır.
 - `NimbusJwtEncoder(jwkSource)` constructor'ı `typ=JWT` header'ını yazmaz (`withKeyPair` builder'ı yazar).
 
 ---
