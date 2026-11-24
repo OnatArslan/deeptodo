@@ -113,6 +113,8 @@ Bulgu yoksa uydurulmaz.
 - Her şey `develop` üzerinde, doğrudan (feature branch yok). `main` yalnız Onat'ın kararıyla (release).
 - Adım yazıldıktan sonra **commit edilmez**; Onat IntelliJ'de diff'i okur. Sonraki adımın planı onaylanınca Claude önceki
   adımı commit edip push eder, sonra yeni adımı yazar. Böylece diff'te her zaman yalnız tek adım görünür.
+- Doküman değişiklikleri (`CLAUDE.md`, `ROADMAP.md`, `STATUS.md`, `SPEC.md`, `README.md`) de aynı kurala uyar: commit
+  edilmeden bırakılır, Onat diff'ten okur; Onat "commitle" deyince ya da sonraki adım onaylanınca commit edilir.
 - Claude adımı yazınca diff panelini **"uncommitted" kapsamıyla** açar. Varsayılan kapsam ("all") `main`'e göre
   karşılaştırır ve `develop`'taki bütün geçmiş commit'leri gösterir. Commit edilmiş bir adıma dönüp bakmak için kapsam
   o commit'in SHA'sı olur.
