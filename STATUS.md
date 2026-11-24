@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-11-23
+2026-11-24
 
 ## Current phase
 
@@ -46,4 +46,5 @@ Uygulama sırasında yeniden açılmaz (değişiklik Onat'ın kararıdır):
 - başkasının kaydı 404 (403 değil)
 - Todo → Project opsiyonel; Tag ilişkisi açık `TodoTag` entity'si
 - User kapatılır (silinmez); Project arşivlenir; Todo ve Tag hard delete
-- auth uygulamada, Spring Security ile; Keycloak / Redis / Kafka / deploy yalnız opsiyonel O bölümünde
+- auth uygulamada, Spring Security ile; Keycloak / Redis / Kafka yalnız opsiyonel O bölümünde
+- public HTTPS deploy ve CI v1'in parçası (Q4; karar 2026-11-24)

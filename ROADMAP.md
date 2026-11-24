@@ -57,18 +57,19 @@ Geçmiş: 2026-11-11'e kadarki workspace tabanlı büyük sürüm git geçmişin
 - [ ] **S7** Refresh token: `refresh_tokens` migration'ı, üretim + cookie, `POST /api/auth/refresh` (koşullu UPDATE ile rotation)
 - [ ] **S8** Reuse detection (aile revoke) + `POST /api/auth/logout` + `DELETE /api/users/me` (kapatma, bütün token'ların revoke'u)
 
-## Q — Test ve paket
+## Q — Test, paket ve canlı
 
 - [ ] **Q1** Testcontainers altyapısı + SPEC §8'deki entegrasyon testleri (auth akışı, sahiplik, eşzamanlı refresh, constraint'ler, optimistic locking)
 - [ ] **Q2** OpenAPI (springdoc) + Bearer security scheme
-- [ ] **Q3** Dockerfile (multi-stage, non-root) + compose'a app servisi + README (çalıştırma, tasarım kararları) → v1
+- [ ] **Q3** Dockerfile (multi-stage, non-root) + compose'a app servisi + README (çalıştırma, tasarım kararları)
+- [ ] **Q4** CI (GitHub Actions: test + image build) + public HTTPS deploy (hosting seçimi, production config ve secret'lar,
+  canlıda duman testi) → v1 (karar 2026-11-24: O4'ten v1'e alındı)
 
 ## O — Opsiyonel (v1'den sonra)
 
 - [ ] **O1** Keycloak'a geçiş: kendi auth'umuzu kaldırıp resource server'ı Keycloak'a bağlamak; S adımlarıyla karşılaştırma
 - [ ] **O2** Redis: login rate limit (429 + `Retry-After`)
 - [ ] **O3** Kafka: transactional outbox + bir event (ör. `UserDeactivated`)
-- [ ] **O4** CI (GitHub Actions) + public HTTPS deploy
 
 ---
 
@@ -125,6 +126,7 @@ fazla adıma yarıyorsa yalnız ilk adımda okunur; sonraki adımda "tekrar" diy
 | S8 | tekrar: Sec 7 (reuse detection, revoke) ve Sec 9 (CSRF) | |
 | Q1 | Sec 12 | |
 | Q2 | Web 8 | |
+| Q4 | devops-tutor: CI/CD kursu · docker-tutor: image ve registry (başlık numaraları Q4'ün planında verilir) | |
 | O1 | Sec 10, 11 | |
 
 Projede karşılığı olmayan başlıklar: Core 8 (event'ler, async, scheduling) ve Web 7 (HTTP client'lar). Bunlar v1'den sonra

@@ -14,7 +14,7 @@
 | 5 | Project | J3, S6 |
 | 6 | Tag ve etiketleme | J4, J5, S6 |
 | 7 | API ve hata sözleşmesi | W1–W3 ve her adımın uçları |
-| 8 | Kalite: test, loglama, performans, bitti tanımı | Q1–Q3 |
+| 8 | Kalite: test, loglama, performans, canlı ortam, bitti tanımı | Q1–Q4 |
 
 Her entity bölümü aynı sırayı izler:
 
@@ -140,7 +140,8 @@ Bir kural birden fazla katmanda durabilir ve çoğu zaman durmalıdır. Örneği
 ### Kapsam dışı
 
 Workspace, paylaşım, rol ve admin; e-posta doğrulama ve parola sıfırlama; dosya eki, bildirim, hatırlatma, tekrarlayan görev;
-frontend; microservice. Keycloak, Redis, Kafka ve public deploy yalnız ROADMAP'in opsiyonel O bölümünde, v1'den sonra.
+frontend; microservice. Keycloak, Redis ve Kafka yalnız ROADMAP'in opsiyonel O bölümünde, v1'den sonra. Public HTTPS deploy
+v1'in parçasıdır (Q4; karar 2026-11-24).
 
 ### Teknoloji
 
@@ -152,7 +153,7 @@ frontend; microservice. Keycloak, Redis, Kafka ve public deploy yalnız ROADMAP'
 | Persistence | PostgreSQL 17, Flyway, Spring Data JPA (Hibernate 7.4) |
 | Security | Spring Security, OAuth2 Resource Server (JWT, RS256), Argon2id |
 | Test | JUnit 5, Spring Boot Test, Testcontainers (PostgreSQL) |
-| Paket | springdoc-openapi, Docker |
+| Paket ve canlı | springdoc-openapi, Docker, GitHub Actions (CI), public HTTPS deploy (hosting Q4'ün planında seçilir) |
 
 ---
 
@@ -909,7 +910,7 @@ Kurallar:
 
 ## 8. Kalite: test, loglama, performans, bitti tanımı
 
-> Adımlar: **Q1–Q3**. Kurallar her adımda geçerli; testlerin çoğu Q1'de yazılır.
+> Adımlar: **Q1–Q4**. Kurallar her adımda geçerli; testlerin çoğu Q1'de yazılır, canlıya çıkış Q4'te.
 
 ### Test
 
@@ -968,3 +969,7 @@ Hiçbir parola, key ya da token repoya girmez.
 3. Yukarıdaki test tablosunun tamamı yeşil (`./mvnw verify`).
 4. README: projeyi çalıştırma, mimari özet, önemli tasarım kararları (bu spec'in "Kararlar" bölümlerinden).
 5. Spec ile kod çelişmiyor. Çelişki varsa ya kod ya spec düzeltilmiş.
+6. Uygulama public bir HTTPS adresinde çalışıyor: health `UP`, register → login → todo akışı canlıda deneniyor. Production
+   ayarları "Konfigürasyon" tablosundaki gibi (secret'lar ortamdan, refresh cookie `Secure`, Actuator'da yalnız health).
+7. CI: `develop`'a her push'ta testler (`./mvnw verify`, Testcontainers dahil) çalışır ve image build edilir; kırmızı
+   build canlıya çıkmaz.
